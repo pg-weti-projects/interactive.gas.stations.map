@@ -2,8 +2,10 @@ FROM python:3.10
 
 WORKDIR /WebMap
 
-COPY . .
+COPY requirements.txt requirements.txt
 
 RUN pip install -r requirements.txt
 
-CMD ["python", "WebMap/app.py"]
+COPY WebMap/ /WebMap
+
+CMD ["python", "app.py"]
