@@ -10,6 +10,7 @@ Web application with interactive map.
 ```shell
 pip install -r requirements.txt
 ```
+3. Complete the **config.ini.example** file with the required data and rename the file to **'config.ini'**.
 
 ### RUN
 To run this application use below command:
@@ -17,6 +18,7 @@ To run this application use below command:
 ```shell
 python3 WebMap/app.py
 ```
+
 
 <br>
 <br>
