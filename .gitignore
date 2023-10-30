@@ -1,1 +1,3 @@
 *.pyc
+/database_data
+/venv
