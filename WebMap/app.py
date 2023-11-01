@@ -17,7 +17,7 @@ def interactive_map():
 
     received_data = osm_manager.get_data_from_overpass_api()
 
-    mongo_manager.add_rows_to_db(received_data)
+    mongo_manager.add_records_to_db(received_data)
 
     return render_template("base.html")
 
