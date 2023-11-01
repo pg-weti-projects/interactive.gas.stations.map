@@ -1,4 +1,9 @@
+
+# local files, cache
 *.pyc
+*.ini
+
+# local directories
 /database_data
 /venv
-*.ini
+.idea
