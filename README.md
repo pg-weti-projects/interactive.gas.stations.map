@@ -13,10 +13,10 @@ pip install -r requirements.txt
 3. Complete the **config.ini.example** file with the required data and rename the file to **'config.ini'**.
 
 ### RUN
-To run this application use below command:
+To run this application use below command ( you have to be in WebMap directory ):
 
 ```shell
-python3 WebMap/app.py
+python3 app.py
 ```
 
 
