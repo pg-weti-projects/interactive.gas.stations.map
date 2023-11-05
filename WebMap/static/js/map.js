@@ -1,9 +1,5 @@
 $(document).ready(function () {
-
-    // General settings
-    var apiKey = "ApTJzdkyN1DdFKkRAE6QIDtzihNaf6IWJsT-nQ_2eMoO4PN__0Tzhl2-WgJtXFSp";
     var ol = OpenLayers;
-
 
     // App settings
     var wgs84 = new ol.Projection("EPSG:4326");
@@ -13,26 +9,22 @@ $(document).ready(function () {
         units: "degrees",
     };
 
-    // Map settings
     var zoomLevel = 7;
     var map;
     var center_pl_lon = 19;
     var center_pl_lat = 52;
-    var marker_size = new ol.Size(30, 30);
+    var user_marker_lon = null;
+    var user_marker_lat = null;
 
+    var markersLayer;
+    var drawControl = null;
 
-
-    function init(){
-        // normal map
-        var osm = new ol.Layer.OSM("OSM Map");
-
-        // Marked gas stations
-        var markers = new ol.Layer.Markers("Gas Stations");
-
+    // Initialize all basic components on the website
+    function init() {
         map = new ol.Map('map', options);
 
-        // normal layer
-        map.addLayers([osm, markers]);
+        var osm = new ol.Layer.OSM("OSM Map");
+        map.addLayer(osm);
 
         // add switch menu to change layers
         var switcher = new ol.Control.LayerSwitcher();
@@ -46,31 +38,84 @@ $(document).ready(function () {
         var lonLat = createLonLatObject(center_pl_lon, center_pl_lat);
         map.setCenter(lonLat, zoomLevel);
 
+        markersLayer = new ol.Layer.Vector("Markers", {
+            styleMap: new ol.StyleMap({
+                'default': {
+                    externalGraphic: 'static/img/user_location_point.png',
+                    graphicWidth: 30,
+                    graphicHeight: 30,
+                    graphicXOffset: -15,
+                    graphicYOffset: -30,
+                    graphicZIndex: 1,
+                }
+            })
+        });
+        map.addLayer(markersLayer);
 
-        // adding static markers -- EXAMPLES FOR FUTURE
-
-        // orlen station
-        var amic_gru_lon = 18.7325591;
-        var amic_gru_lat = 53.4530299;
-
-        var gru_lonlat_obj = createLonLatObject(amic_gru_lon, amic_gru_lat);
-        var station_icon = new ol.Icon('static/img/gas_station.png', marker_size);
-        markers.addMarker(new ol.Marker(gru_lonlat_obj, station_icon));
-
-        // user marker
-        var user_lon = 18.72167;
-        var user_lat = 53.41845;
-
-        var user_lonlat = createLonLatObject(user_lon, user_lat);
-        var user_icon = new ol.Icon('static/img/user_location_point.png', marker_size);
-        markers.addMarker(new ol.Marker(user_lonlat, user_icon));
-
+        $(".add-marker").click(function () {
+            showAlert("Place marker on the map", "info");
+            enableMarkerAddMode();
+        });
     }
 
-    // Create LonLat object with proper projection (with degrees scale)
+    // Enable Marker mode to add marker on the map
+    function enableMarkerAddMode() {
+        if (drawControl) {
+            map.removeControl(drawControl);
+            drawControl.deactivate();
+            drawControl.destroy();
+            drawControl = null;
+        }
+
+        drawControl = new ol.Control.DrawFeature(markersLayer, ol.Handler.Point);
+        map.addControl(drawControl);
+        drawControl.activate();
+
+        drawControl.events.on({
+            featureadded: function (event) {
+                var feature = event.feature;
+                var user_marked_lonlat = feature.geometry.clone().transform(map.getProjectionObject(), wgs84);
+
+                // set marker lon and lat to global variables
+                user_marker_lon = user_marked_lonlat.x;
+                user_marker_lat = user_marked_lonlat.y;
+
+                map.removeControl(drawControl);
+                drawControl.deactivate();
+                drawControl.destroy();
+                drawControl = null;
+
+                markersLayer.removeAllFeatures();
+                markersLayer.addFeatures(feature);
+                $(".add-marker").text("Change Marker Location");
+                $('.find-nearest-station').prop('disabled', false);
+                showAlert(`Successfully placed marker (${user_marker_lon}, ${user_marker_lat})`, "success");
+            }
+        });
+    }
+
+    // Creating lon lat object with correct projection
     function createLonLatObject(lon, lat) {
         return new ol.LonLat(lon, lat).transform(wgs84, map.getProjectionObject());
     }
+
+    // Listens if remove-marker button has been clicked and remove user marker from map.
+    $(".remove-marker").click(function () {
+    if (user_marker_lon !== null && user_marker_lat !== null) {
+        markersLayer.removeAllFeatures();
+
+        user_marker_lon = null;
+        user_marker_lat = null;
+
+        $('.find-nearest-station').prop('disabled', true);
+
+        $(".add-marker").text("Add marker");
+
+        showAlert("Marker removed", "info");
+    } else {
+        showAlert("No marker to remove", "warning");
+    }
+});
 
     init();
 });
