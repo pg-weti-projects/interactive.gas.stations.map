@@ -49,3 +49,13 @@ class MongoManager:
     @property
     def gas_stations_collection(self):
         return self.db['gasStations']
+
+    def get_records_from_db(self):
+        """
+            Retrieve data, including coordinates, station name, and brand for using the API.
+        """
+        try:
+            gas_stations_data = list(self.db.gasStations.find({}, {'_id': 0, 'lon': 1, 'lat': 1, 'name': 1, 'brand': 1}))
+            return gas_stations_data
+        except Exception as e:
+            raise TypeError('Error downloading data: ', str(e))

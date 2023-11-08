@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, jsonify
 
 from osm_manager import OsmManager
 from Mongo.mongo_manager import MongoManager
@@ -20,6 +20,16 @@ def interactive_map():
     mongo_manager.add_records_to_db(received_data)
 
     return render_template("base.html")
+
+
+@app.route("/api/gas_station_data")
+def data_map():
+    """
+        Route api with gas stations data.
+    """
+    mongo_manager = MongoManager()
+    data = mongo_manager.get_records_from_db()
+    return jsonify(data)
 
 
 if __name__ == "__main__":
