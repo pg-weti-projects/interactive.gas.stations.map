@@ -11,14 +11,6 @@ def interactive_map():
     """
     main website page.
     """
-
-    osm_manager = OsmManager()
-    mongo_manager = MongoManager()
-
-    received_data = osm_manager.get_data_from_overpass_api()
-
-    mongo_manager.add_records_to_db(received_data)
-
     return render_template("base.html")
 
 
@@ -30,6 +22,19 @@ def data_map():
     mongo_manager = MongoManager()
     data = mongo_manager.get_records_from_db()
     return jsonify(data)
+
+
+@app.route("/database")
+def create_database():
+    """
+            Route witch creating / updating database.
+    """
+    osm_manager = OsmManager()
+    mongo_manager = MongoManager()
+
+    received_data = osm_manager.get_data_from_overpass_api()
+
+    mongo_manager.add_records_to_db(received_data)
 
 
 if __name__ == "__main__":

@@ -48,7 +48,7 @@ $(document).ready(function () {
 
 
         // adding static markers
-        fetch('/api/gas_station_data')
+    fetch('/api/gas_station_data')
             .then(response => response.json())
             .then(data => {
                 data.forEach(station => {
@@ -57,44 +57,49 @@ $(document).ready(function () {
                     var name = station.name;
                     var brand = station.brand;
                     var station_lonlat_obj = createLonLatObject(lon, lat);
-                    if(name == 'Orlen' || brand == 'Orlen') {
-                        var station_icon_Orlen = new ol.Icon('/static/img/user_location__point_orlen.png', marker_size);
-                        markers.addMarker(new ol.Marker(station_lonlat_obj, station_icon_Orlen));
+                    var marker;
+
+                    if (name == 'Orlen' || brand == 'Orlen') {
+                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('/static/img/user_location__point_orlen.png', marker_size));
+                    } else if (name == 'BP' || brand == 'BP') {
+                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/user_location_point_bp.png', marker_size));
+                    } else if (name == 'Lotos' || brand == 'Lotos') {
+                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/user_location_point_lotos.png', marker_size));
+                    } else if (name == 'Circle K' || brand == 'Circle K') {
+                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/user_location_point_circle_k.png', marker_size));
+                    } else if (name == 'Amica' || brand == 'Amica') {
+                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/user_location_point_amica.png', marker_size));
+                    } else if (name == 'Moya' || brand == 'Moya') {
+                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/user_location_point_moya.png', marker_size));
+                    } else if (name == 'Shell' || brand == 'Shell') {
+                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/user_location_point_shell.png', marker_size));
+                    } else {
+                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/gas_station.png', marker_size));
                     }
-                    else if (name == 'BP' || brand == 'BP') {
-                        var station_icon_BP = new ol.Icon('static/img/user_location_point_bp.png', marker_size);
-                        markers.addMarker(new ol.Marker(station_lonlat_obj, station_icon_BP));
-                    }
-                    else if (name == 'Lotos' || brand == 'Lotos') {
-                        var station_icon_lotos = new ol.Icon('static/img/user_location_point_lotos.png', marker_size);
-                        markers.addMarker(new ol.Marker(station_lonlat_obj, station_icon_lotos));
-                    }
-                    else if (name == 'Circle K' || brand == 'Circle K') {
-                        var station_icon_circle_k = new ol.Icon('static/img/user_location_point_circle_k.png', marker_size);
-                        markers.addMarker(new ol.Marker(station_lonlat_obj, station_icon_circle_k));
-                    }
-                    else if (name == 'Amica' || brand == 'Amica') {
-                        var station_icon_amica = new ol.Icon('static/img/user_location_point_amica.png', marker_size);
-                        markers.addMarker(new ol.Marker(station_lonlat_obj, station_icon_amica));
-                    }
-                    else if (name == 'Moya' || brand == 'Moya') {
-                        var station_icon_moya = new ol.Icon('static/img/user_location_point_moya.png', marker_size);
-                        markers.addMarker(new ol.Marker(station_lonlat_obj, station_icon_moya));
-                    }
-                    else if (name == 'Shell' || brand == 'Shell') {
-                        var station_icon_shell = new ol.Icon('static/img/user_location_point_shell.png', marker_size);
-                        markers.addMarker(new ol.Marker(station_lonlat_obj, station_icon_shell));
-                    }
-                    else
-                    {
-                        var station_icon_other = new ol.Icon('static/img/gas_station.png', marker_size);
-                        markers.addMarker(new ol.Marker(station_lonlat_obj, station_icon_other));
-                    }
+                    addPopupToMarker(marker, `<b>Name: ${name}</b><br><b>Brand: ${brand}</b><br><b>Coordinates: ${lon}, ${lat}</b>`);
+                    markers.addMarker(marker);
                 });
             })
             .catch(error => {
                 console.error('Error during download data from API:', error);
             });
+    }
+
+    function addPopupToMarker(marker, popupText) {
+        var popup = new ol.Popup.FramedCloud(
+            "popup",
+            marker.lonlat,
+            null,
+            popupText,
+            null,
+            true
+        );
+        marker.events.register("click", marker, function () {
+            if (map.popups.length) {
+                map.removePopup(map.popups[0]);
+            }
+            map.addPopup(popup);
+        });
     }
 
     // Create LonLat object with proper projection (with degrees scale)
