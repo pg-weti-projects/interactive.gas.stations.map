@@ -36,6 +36,8 @@ def create_database():
 
     mongo_manager.add_records_to_db(received_data)
 
+    return render_template("database.html")
+
 
 if __name__ == "__main__":
     app.run(debug=False, host='0.0.0.0', port=8085)
