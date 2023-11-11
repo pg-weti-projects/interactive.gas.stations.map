@@ -17,7 +17,7 @@ class MongoManager:
         self.client = pymongo.MongoClient(self.url,  # TODO maybe create ConfigManager class
                                           username=self.cfg.get('mongo', 'username'),
                                           password=self.cfg.get('mongo', 'password'))
-        self.db = self.client['DUPA']
+        self.db = self.client['GIS']
 
     def _check_and_add_element(self, row_data: dict) -> None:
         """
