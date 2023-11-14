@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, redirect, url_for
 
 from osm_manager import OsmManager
 from Mongo.mongo_manager import MongoManager
@@ -10,8 +10,15 @@ app = Flask(__name__)
 def interactive_map():
     """
     main website page.
+    check that database exists before launching the website
     """
-    return render_template("base.html")
+    mongo_manager = MongoManager()
+    if mongo_manager.is_database_exist() > 0:
+
+        return render_template("base.html")
+    else:
+
+        return redirect(url_for('create_database'))
 
 
 @app.route("/api/gas_station_data")
@@ -36,7 +43,7 @@ def create_database():
 
     mongo_manager.add_records_to_db(received_data)
 
-    return render_template("database.html")
+    return redirect(url_for('interactive_map'))
 
 
 if __name__ == "__main__":

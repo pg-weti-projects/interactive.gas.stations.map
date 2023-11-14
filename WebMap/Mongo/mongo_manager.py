@@ -92,3 +92,7 @@ class MongoManager:
             return gas_stations_data
         except Exception as e:
             raise TypeError('Error downloading data: ', str(e))
+
+    @property
+    def is_database_exist(self):
+        return self.gas_stations_collection.count_documents({})

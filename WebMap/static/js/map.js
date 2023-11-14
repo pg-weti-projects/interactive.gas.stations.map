@@ -47,7 +47,7 @@ $(document).ready(function () {
         map.setCenter(lonLat, zoomLevel);
 
 
-        // adding static markers
+        // adding static pointers
     fetch('/api/gas_station_data')
             .then(response => response.json())
             .then(data => {
@@ -60,19 +60,19 @@ $(document).ready(function () {
                     var marker;
 
                     if (name == 'Orlen' || brand == 'Orlen') {
-                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('/static/img/user_location__point_orlen.png', marker_size));
+                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('/static/img/gas_station_point_orlen.png', marker_size));
                     } else if (name == 'BP' || brand == 'BP') {
-                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/user_location_point_bp.png', marker_size));
+                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/gas_station_point_bp.png', marker_size));
                     } else if (name == 'Lotos' || brand == 'Lotos') {
-                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/user_location_point_lotos.png', marker_size));
+                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/gas_station_point_lotos.png', marker_size));
                     } else if (name == 'Circle K' || brand == 'Circle K') {
-                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/user_location_point_circle_k.png', marker_size));
+                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/gas_station_point_circle_k.png', marker_size));
                     } else if (name == 'Amica' || brand == 'Amica') {
-                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/user_location_point_amica.png', marker_size));
+                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/gas_station_point_amica.png', marker_size));
                     } else if (name == 'Moya' || brand == 'Moya') {
-                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/user_location_point_moya.png', marker_size));
+                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/gas_station_point_moya.png', marker_size));
                     } else if (name == 'Shell' || brand == 'Shell') {
-                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/user_location_point_shell.png', marker_size));
+                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/gas_station_point_shell.png', marker_size));
                     } else {
                         marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/gas_station.png', marker_size));
                     }
