@@ -8,16 +8,12 @@ class OsmManager:
     def __init__(self):
         self.url = "https://overpass-api.de/api/interpreter"
         self.overpass_query = """
-            [out:json];
-            area["ISO3166-1"="PL"]->.searchArea;
-            (
-              node["amenity"="fuel"]["addr:city"="Grudziądz"](area.searchArea);
-              way["amenity"="fuel"]["addr:city"="Grudziądz"](area.searchArea);
-              relation["amenity"="fuel"]["addr:city"="Grudziądz"](area.searchArea);
-            );
-            out body;
-            >;
-            out skel qt;
+        [out:json];
+        area["ISO3166-1"="PL"]->.searchArea;
+        (
+          nwr["amenity"="fuel"](area.searchArea);
+        );
+        out center;
         """
 
     @staticmethod
@@ -58,17 +54,3 @@ class OsmManager:
             data_list.append(self._add_tags_to_main_dict(record))
 
         return data_list
-
-
-# """
-# [out:json];
-# area["ISO3166-1"="PL"]->.searchArea;
-# (
-# node["amenity"="fuel"]["brand"](area.searchArea);
-# way["amenity"="fuel"]["brand"](area.searchArea);
-# relation["amenity"="fuel"]["brand"](area.searchArea);
-# );
-# out body;
-# >;
-# out skel qt;
-# """
