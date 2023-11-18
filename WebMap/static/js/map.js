@@ -4,7 +4,7 @@ $(document).ready(function () {
 
     var apiKey = 'AAPKaf77b11595124e6295c9f2679a38fb9dJbeoPRXhOddgVhIXAURQSmut9oqQkOmIzIDqSr7EK-_Vyjo3Wm_mYzt-dUi6WT49';
 
-    const zoomLevel = 7;
+    const zoomLevel = 9;
     const centerPlCoords = [19, 52];
 
     var map;
@@ -14,6 +14,10 @@ $(document).ready(function () {
 
     var routeLayer;
     var roadOnMap = false;
+
+    // markers settings
+    const markersScale = 0.025;
+    const markersAnchor = [0.5, 1];
 
     // Initialize all basic components on the website
     function init() {
@@ -85,103 +89,224 @@ $(document).ready(function () {
 
         // adding static pointers
 
-        const markersScale = 0.025
-        const markersAnchor = [0.5, 1]
+        // TEMP ONE MARKER
+//
+//        var lon = 19;
+//        var lat = 52;
+//
+//        let features = [];
+//
+//        const iconFeature = new ol.Feature({
+//            geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat])),
+//            name: 'TEMP MARKER',
+//        });
+//
+//        const iconStyle = new ol.style.Style({
+//            image: new ol.style.Icon({
+//                src: '/static/img/gas_station_point_orlen.png',
+//                scale: markersScale,
+//                anchor: markersAnchor,
+//            }),
+//        });
+//        iconFeature.setStyle(iconStyle);
+//        features.push(iconFeature);
+//
+//
+//        const iconFeature2 = new ol.Feature({
+//            geometry: new ol.geom.Point(ol.proj.fromLonLat([19.5, lat])),
+//            name: 'DRUGI TEMP MARKER',
+//        });
+//
+//        const iconStyle2 = new ol.style.Style({
+//            image: new ol.style.Icon({
+//                src: '/static/img/gas_station_point_orlen.png',
+//                scale: markersScale,
+//                anchor: markersAnchor,
+//            }),
+//        });
+//        iconFeature2.setStyle(iconStyle2);
+//        features.push(iconFeature2);
 
+        featuress = generateAllMarkers();
+
+
+        const vectorSource = new ol.source.Vector({
+            features: features,
+        });
+
+        const newMarkersLayer = new ol.layer.Vector({
+            source: vectorSource,
+        });
+        map.addLayer(newMarkersLayer);
+
+        const element = document.getElementById('popup');
+
+        const popup = new ol.Overlay({
+          element: element,
+          positioning: 'bottom-center',
+          stopEvent: false,
+        });
+        map.addOverlay(popup);
+
+        let popover;
+        function disposePopover() {
+          if (popover) {
+            popover.dispose();
+            popover = undefined;
+          }
+        }
+        // display popup on click
+        map.on('click', function (evt) {
+          const feature = map.forEachFeatureAtPixel(evt.pixel, function (feature) {
+            return feature;
+          });
+          disposePopover();
+          if (!feature) {
+            return;
+          }
+          popup.setPosition(evt.coordinate);
+          popover = new bootstrap.Popover(element, {
+            placement: 'top',
+            html: true,
+            content: feature.get('name'),
+          });
+          popover.show();
+        });
+
+        // change mouse cursor when over marker
+        map.on('pointermove', function (event) {
+          const pixel = event.pixel;
+          const hit = map.hasFeatureAtPixel(pixel);
+          const targetElement = map.getTargetElement();
+
+          if (hit) {
+            targetElement.style.cursor = 'pointer';
+          } else {
+            targetElement.style.cursor = '';
+          }
+        });
+
+        // Close the popup when the map is moved
+        map.on('movestart', disposePopover);
+    };
+
+
+    function generateAllMarkers() {
+        let features = [];
         fetch('/api/gas_station_data')
         .then(response => response.json())
         .then(data => {
+            const promises = [];
+
             data.forEach(station => {
-                var lon = station.lon;
-                var lat = station.lat;
-                var name = station.name;
-                var brand = station.brand;
-                var station_lonlat_obj = ol.proj.fromLonLat([lon, lat]);
-                var markerStyle;
+                const promise = new Promise((resolve, reject) => {
+                    var lon = station.lon;
+                    var lat = station.lat;
+                    var name = station.name;
+                    var brand = station.brand;
+                    var station_lonlat_obj = ol.proj.fromLonLat([lon, lat]);
+                    var markerStyle;
 
-                if (name == 'Orlen' || brand == 'Orlen') {
-                    markerStyle = new ol.style.Style({
-                        image: new ol.style.Icon({
-                            src: '/static/img/gas_station_point_orlen.png',
-                            scale: markersScale,
-                            anchor: markersAnchor,
-                        })
-                    });
-                } else if (name == 'BP' || brand == 'BP') {
-                    markerStyle = new ol.style.Style({
-                        image: new ol.style.Icon({
-                            src: 'static/img/gas_station_point_bp.png',
-                            scale: markersScale,
-                            anchor: markersAnchor,
-                        })
-                    });
-                } else if (name == 'Lotos' || brand == 'Lotos') {
-                    markerStyle = new ol.style.Style({
-                        image: new ol.style.Icon({
-                            src: 'static/img/gas_station_point_lotos.png',
-                            scale: markersScale,
-                            anchor: markersAnchor,
-                        })
-                    });
-                } else if (name == 'Circle K' || brand == 'Circle K') {
-                    markerStyle = new ol.style.Style({
-                        image: new ol.style.Icon({
-                            src: 'static/img/gas_station_point_circle_k.png',
-                            scale: markersScale,
-                            anchor: markersAnchor,
-                        })
-                    });
-                } else if (name == 'Amic' || brand == 'Amic') {
-                    markerStyle = new ol.style.Style({
-                        image: new ol.style.Icon({
-                            src: 'static/img/gas_station_point_amica.png',
-                            scale: markersScale,
-                            anchor: markersAnchor,
-                        })
-                    });
-                } else if (name == 'Moya' || brand == 'Moya') {
-                    markerStyle = new ol.style.Style({
-                        image: new ol.style.Icon({
-                            src: 'static/img/gas_station_point_moya.png',
-                            scale: markersScale,
-                            anchor: markersAnchor,
-                        })
-                    });
-                } else if (name == 'Shell' || brand == 'Shell') {
-                    markerStyle = new ol.style.Style({
-                        image: new ol.style.Icon({
-                            src: 'static/img/gas_station_point_shell.png',
-                            scale: markersScale,
-                            anchor: markersAnchor,
-                        })
-                    });
-                } else {
-                    markerStyle = new ol.style.Style({
-                        image: new ol.style.Icon({
-                            src: 'static/img/gas_station_point_other.png',
-                            scale: markersScale,
-                            anchor: markersAnchor,
-                        })
-                    });
-                }
+                    if (name == 'Orlen' || brand == 'Orlen') {
+                        markerStyle = new ol.style.Style({
+                            image: new ol.style.Icon({
+                                src: '/static/img/gas_station_point_orlen.png',
+                                scale: markersScale,
+                                anchor: markersAnchor,
+                            })
+                        });
+                    } else if (name == 'BP' || brand == 'BP') {
+                        markerStyle = new ol.style.Style({
+                            image: new ol.style.Icon({
+                                src: 'static/img/gas_station_point_bp.png',
+                                scale: markersScale,
+                                anchor: markersAnchor,
+                            })
+                        });
+                    } else if (name == 'Lotos' || brand == 'Lotos') {
+                        markerStyle = new ol.style.Style({
+                            image: new ol.style.Icon({
+                                src: 'static/img/gas_station_point_lotos.png',
+                                scale: markersScale,
+                                anchor: markersAnchor,
+                            })
+                        });
+                    } else if (name == 'Circle K' || brand == 'Circle K') {
+                        markerStyle = new ol.style.Style({
+                            image: new ol.style.Icon({
+                                src: 'static/img/gas_station_point_circle_k.png',
+                                scale: markersScale,
+                                anchor: markersAnchor,
+                            })
+                        });
+                    } else if (name == 'Amic' || brand == 'Amic') {
+                        markerStyle = new ol.style.Style({
+                            image: new ol.style.Icon({
+                                src: 'static/img/gas_station_point_amica.png',
+                                scale: markersScale,
+                                anchor: markersAnchor,
+                            })
+                        });
+                    } else if (name == 'Moya' || brand == 'Moya') {
+                        markerStyle = new ol.style.Style({
+                            image: new ol.style.Icon({
+                                src: 'static/img/gas_station_point_moya.png',
+                                scale: markersScale,
+                                anchor: markersAnchor,
+                            })
+                        });
+                    } else if (name == 'Shell' || brand == 'Shell') {
+                        markerStyle = new ol.style.Style({
+                            image: new ol.style.Icon({
+                                src: 'static/img/gas_station_point_shell.png',
+                                scale: markersScale,
+                                anchor: markersAnchor,
+                            })
+                        });
+                    } else {
+                        markerStyle = new ol.style.Style({
+                            image: new ol.style.Icon({
+                                src: 'static/img/gas_station_point_other.png',
+                                scale: markersScale,
+                                anchor: markersAnchor,
+                            })
+                        });
+                    }
 
-                var marker = new ol.Feature({
-                    geometry: new ol.geom.Point(station_lonlat_obj)
+                    let marker = new ol.Feature({
+                        geometry: new ol.geom.Point(station_lonlat_obj)
+                    });
+                    marker.setStyle(markerStyle);
+
+                    features.push(marker);
+
+                    resolve();
                 });
-                marker.setStyle(markerStyle);
-
-                addPopupToMarker(marker, `Name: ${name}<br>Brand: ${brand}<br>Coordinates: ${lon}, ${lat}`);
-                gasStationsMarkersLayer.getSource().addFeature(marker);
+                promises.push(promise);
             });
+
+            Promise.all(promises)
+              .then(() => {
+                console.log('Przypisuje features i tworze layer');
+                console.log("FEATUERKI:", features);
+                return features;
+              })
+              .catch(error => {
+                console.error('Wystąpił błąd podczas operacji na stacjach:', error);
+              });
         })
         .catch(error => {
             console.error('Error during download data from API:', error);
         });
-    }
+
+
+    };
 
 
     function addPopupToMarker(marker, popupText) {
         console.log("POPUP FUNC WORKING");
+
+        console.log(marker)
         var popup = new ol.Overlay({
             element: document.createElement('div'),
             positioning: 'bottom-center',
