@@ -1,111 +1,272 @@
+import {createOsmLayer, createRouteLayer, createUserMarkerLayer, createGasStationsMarkersLayer} from './modules/layers.js'
+import {generateAllMarkers} from './modules/markers.js'
+
 $(document).ready(function () {
 
-    // General settings
-    var apiKey = "ApTJzdkyN1DdFKkRAE6QIDtzihNaf6IWJsT-nQ_2eMoO4PN__0Tzhl2-WgJtXFSp";
-    var ol = OpenLayers;
+    // General Settings
+    const defaultProjection = 'EPSG:4326';
+    const apiKey = 'AAPKaf77b11595124e6295c9f2679a38fb9dJbeoPRXhOddgVhIXAURQSmut9oqQkOmIzIDqSr7EK-_Vyjo3Wm_mYzt-dUi6WT49';
+
+    // Map Settings
+    const zoomLevel = 7;
+    const centerPlCoords = [19, 52];
+    let map;
+
+    // Gas Stations markers settings
+    const gasStationsMarkersScale = 0.03;
+    const gasStationsMarkersAnchor = [0.5, 1];
+    let gasStationsMarkersLayer;
+
+    // User marker settings
+    const userMarkerScale = 0.05;
+    const userMarkerAnchor = [0.5, 1];
+    let userMarkerLayer;
+    let userMarkerCoords = null;
+
+    // Route settings
+    const routeStrokeStyle = { color: "hsl(205, 100%, 50%)", width: 4, opacity: 0.6 };
+    let routeLayer;
+
+    // Other settings
+    let drawControl = null;
+    let roadOnMap = false;
+    let popover;
 
 
-    // App settings
-    var wgs84 = new ol.Projection("EPSG:4326");
-    var options = {
-        projection: wgs84,
-        displayProjection: wgs84,
-        units: "degrees",
-    };
+    // Initialize all basic components on the website
+    function init() {
+        map = new ol.Map({
+            target: 'map',
+            projection: defaultProjection,
+            displayProjection: defaultProjection,
+            units: 'degrees',
+        });
 
-    // Map settings
-    var zoomLevel = 7;
-    var map;
-    var center_pl_lon = 19;
-    var center_pl_lat = 52;
-    var marker_size = new ol.Size(30, 30);
+        // Add OSM layer
+        map.addLayer(createOsmLayer());
 
+        // Add additional layers to the map
+        routeLayer = createRouteLayer(routeStrokeStyle)
+        map.addLayer(routeLayer);
+        userMarkerLayer = createUserMarkerLayer(userMarkerScale, userMarkerAnchor)
+        map.addLayer(userMarkerLayer);
+        gasStationsMarkersLayer = createGasStationsMarkersLayer();
+        map.addLayer(gasStationsMarkersLayer);
 
+        // Set Zoom and Center Of Poland as the first view when website is loaded
+        map.getView().setCenter(ol.proj.fromLonLat(centerPlCoords));
+        map.getView().setZoom(zoomLevel);
 
-    function init(){
-        // normal map
-        var osm = new ol.Layer.OSM("OSM Map");
+        // Add mouse position checker to display mouse coordinates
+        let mousePositionControl = new ol.control.MousePosition({
+            coordinateFormat: ol.coordinate.createStringXY(4),
+            projection: defaultProjection,
+            target: document.getElementById('mouse-position'),
+            undefinedHTML: '&nbsp;'
+        });
+        map.addControl(mousePositionControl);
 
-        // Marked gas stations
-        var markers = new ol.Layer.Markers("Gas Stations");
+        $(".add-marker").click(function () {
+            showAlert('Place marker on the map', 'info');
+            addUserMarker();
+        });
 
-        map = new ol.Map('map', options);
+        $('.find-nearest-station').click(function () {
+            if (userMarkerCoords !== null) {
 
-        // normal layer
-        map.addLayers([osm, markers]);
+                // if road is on the map, we need to remove it before mark another route
+                removeRouteIfExist();
 
-        // add switch menu to change layers
-        var switcher = new ol.Control.LayerSwitcher();
-        map.addControl(switcher);
+                const stationCoords = [18.7256813, 53.4409896] // TODO TEMP COORDS UNTIL WE DONT HAVE FINDING NEAREST STATION FUNC THAT RETURN COORDS
 
-        // adding mouse position in left down corner ( in degrees )
-        var mouse_position = new ol.Control.MousePosition();
-        map.addControl(mouse_position);
+                updateRoute(userMarkerCoords, stationCoords)
 
-        // set poland as center of map
-        var lonLat = createLonLatObject(center_pl_lon, center_pl_lat);
-        map.setCenter(lonLat, zoomLevel);
+            } else {
+                showAlert('Please place a marker first.', 'warning');
+            }
+        });
 
-
-        // adding static pointers
-    fetch('/api/gas_station_data')
-            .then(response => response.json())
-            .then(data => {
-                data.forEach(station => {
-                    var lon = station.lon;
-                    var lat = station.lat;
-                    var name = station.name;
-                    var brand = station.brand;
-                    var station_lonlat_obj = createLonLatObject(lon, lat);
-                    var marker;
-
-                    if (name == 'Orlen' || brand == 'Orlen') {
-                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('/static/img/gas_station_point_orlen.png', marker_size));
-                    } else if (name == 'BP' || brand == 'BP') {
-                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/gas_station_point_bp.png', marker_size));
-                    } else if (name == 'Lotos' || brand == 'Lotos') {
-                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/gas_station_point_lotos.png', marker_size));
-                    } else if (name == 'Circle K' || brand == 'Circle K') {
-                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/gas_station_point_circle_k.png', marker_size));
-                    } else if (name == 'Amica' || brand == 'Amica') {
-                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/gas_station_point_amica.png', marker_size));
-                    } else if (name == 'Moya' || brand == 'Moya') {
-                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/gas_station_point_moya.png', marker_size));
-                    } else if (name == 'Shell' || brand == 'Shell') {
-                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/gas_station_point_shell.png', marker_size));
-                    } else {
-                        marker = new ol.Marker(station_lonlat_obj, new ol.Icon('static/img/gas_station.png', marker_size));
-                    }
-                    addPopupToMarker(marker, `<b>Name: ${name}</b><br><b>Brand: ${brand}</b><br><b>Coordinates: ${lon}, ${lat}</b>`);
-                    markers.addMarker(marker);
+        // Adding interactive Gas Stations Markers
+        generateAllMarkers(gasStationsMarkersScale, gasStationsMarkersAnchor)
+            .then(features => {
+                const gasStationsMarkersSource = new ol.source.Vector({
+                    features: features,
                 });
+
+                gasStationsMarkersLayer.setSource(gasStationsMarkersSource);
             })
             .catch(error => {
-                console.error('Error during download data from API:', error);
+                console.error('An error occured during try to generate all gas stations markers:', error);
             });
+
+        addPopupWindowLogic();
     }
 
-    function addPopupToMarker(marker, popupText) {
-        var popup = new ol.Popup.FramedCloud(
-            "popup",
-            marker.lonlat,
-            null,
-            popupText,
-            null,
-            true
-        );
-        marker.events.register("click", marker, function () {
-            if (map.popups.length) {
-                map.removePopup(map.popups[0]);
-            }
-            map.addPopup(popup);
+
+    /*Add route to routeLayer between two points (default user marker and station marker). Displays information
+    * about route ( Distance and Travel Time ) */
+    function updateRoute(userMarkerCoords, stationCoords) {
+
+        const geojson = new ol.format.GeoJSON({
+            defaultDataProjection: defaultProjection,
+            featureProjection: "EPSG:3857"
+        });
+
+        const authentication = arcgisRest.ApiKeyManager.fromKey(apiKey);
+        arcgisRest
+        .solveRoute({
+            stops: [userMarkerCoords, stationCoords],
+            authentication
+        })
+        .then((response) => {
+
+            const features = geojson.readFeatures(response.routes.geoJson);
+
+
+            const routeFeatures = features.map((feature) => {
+                const travelTime = parseFloat(response.directions[0].summary.totalDriveTime).toFixed(0);
+                const totalKilometers = parseFloat(response.routes.features[0].attributes.Total_Kilometers).toFixed(2);
+
+                return new ol.Feature({
+                    geometry: feature.getGeometry(),
+                    name: `<b>Distance: ${totalKilometers} km</b><br><b>Travel time: ${travelTime} min</b>`,
+                });
+            });
+
+            const routeSource = new ol.source.Vector({
+                features: routeFeatures,
+            });
+            routeLayer.setSource(routeSource);
+
+            roadOnMap = true;
+
+            showAlert('Found nearest station! Drawing route...', 'success');
+        })
+        .catch((error) => {
+            console.error('An error occurred during try to get route from points!', error);
+            showAlert("You can't find route to this point! Move your marker to another place.", "warning");
+          });
+    }
+
+
+    /*Remove route from the map if exist*/
+    function removeRouteIfExist() {
+        if (roadOnMap) {
+            routeLayer.getSource().clear();
+            roadOnMap = false;
+        }
+    }
+
+
+    /*Function activate drawing mode to add marker in place selected by user.*/
+    function addUserMarker() {
+        if (drawControl) {
+            map.removeControl(drawControl);
+            drawControl.setActive(false);
+            map.removeInteraction(drawControl);
+            drawControl = null;
+        }
+
+        drawControl = new ol.interaction.Draw({
+            source: userMarkerLayer.getSource(),
+            type: 'Point',
+        });
+
+        map.addInteraction(drawControl);
+        drawControl.setActive(true);
+
+        drawControl.on('drawend', function (event) {
+            map.removeInteraction(drawControl);
+            drawControl.setActive(false);
+
+            userMarkerLayer.getSource().clear();
+
+            $(".add-marker").text('Change Marker Location');
+            $('.find-nearest-station').prop('disabled', false);
+
+            removeRouteIfExist();
+
+            const user_marked_lonlat = event.feature.getGeometry().clone().transform('EPSG:3857', defaultProjection);
+            userMarkerCoords = user_marked_lonlat.getCoordinates();
+            showAlert(`Successfully placed marker (${userMarkerCoords[0]}, ${userMarkerCoords[1]})`, 'success');
         });
     }
 
-    // Create LonLat object with proper projection (with degrees scale)
-    function createLonLatObject(lon, lat) {
-        return new ol.LonLat(lon, lat).transform(wgs84, map.getProjectionObject());
+
+    /*Add handler for clicking on Feature objects. When user click on this object (e.g. Marker, Route), a popup will
+    * appear with information about it. When user hover over Feature object, cursor will be changed. */
+    function addPopupWindowLogic() {
+        const element = document.getElementById('popup');
+
+        const popup = new ol.Overlay({
+          element: element,
+          positioning: 'bottom-center',
+          stopEvent: false,
+        });
+        map.addOverlay(popup);
+
+        // Display popup on click
+        function disposePopover() {
+            if (popover) {
+                popover.dispose();
+                popover = undefined;
+            }
+        }
+
+        // Handle click on Feature object
+        map.on('click', function (evt) {
+            const feature = map.forEachFeatureAtPixel(evt.pixel, function (feature) {
+                return feature;
+            });
+
+            disposePopover();
+            if (!feature || !feature.get('name')) {
+                return;
+            }
+            popup.setPosition(evt.coordinate);
+
+            popover = new bootstrap.Popover(element, {
+                placement: 'top',
+                html: true,
+                content: feature.get('name'),
+            });
+            popover.show();
+        });
+
+        // Change pointer when user hover over Feature object
+        map.on('pointermove', function (event) {
+            const pixel = event.pixel;
+            const hit = map.hasFeatureAtPixel(pixel);
+            const targetElement = map.getTargetElement();
+            if (hit) {
+                targetElement.style.cursor = 'pointer';
+            } else {
+                targetElement.style.cursor = '';
+            }
+        });
+
+        // Close the popup when user click on the map and do something
+        map.on('movestart', disposePopover);
     }
+
+
+    /*Listens if remove-marker button has been clicked and removes the user marker from the map.*/
+    $(".remove-marker").click(function () {
+        if (userMarkerCoords !== null) {
+            removeRouteIfExist();
+            userMarkerLayer.getSource().clear();
+
+            userMarkerCoords = null;
+
+            $('.find-nearest-station').prop('disabled', true);
+
+            $(".add-marker").text('Add marker');
+
+            showAlert('Marker removed', 'info');
+        } else {
+            showAlert('No marker to remove', 'warning');
+        }
+    });
 
     init();
 });
