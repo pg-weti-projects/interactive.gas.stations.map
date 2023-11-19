@@ -34,9 +34,51 @@
                 <div class="other-buttons">
                     <button type="button" class="find-nearest-station btn btn-danger" disabled>Find nearest station</button>
                 </div>
+
+                <div class="map-filter-buttons ms-auto">
+                    <div class="dropdown" data-bs-theme="dark">
+                          <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuClickableInside"
+                                  data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"> Stations Filter
+                          </button>
+
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButtonDark">
+                            <li>
+                                <input class="form-check-input filters-buttons" type="checkbox" value="Amic" id="amic-filter" checked>
+                                <label class="form-check-label" for="amic-filter">Amica Stations</label>
+                            </li>
+                            <li>
+                                <input class="form-check-input filters-buttons" type="checkbox" value="BP" id="bp-filter" checked>
+                                <label class="form-check-label" for="bp-filter">BP Stations</label>
+                            </li>
+                            <li>
+                                <input class="form-check-input filters-buttons" type="checkbox" value="Circle K" id="circle-k-filter" checked>
+                                <label class="form-check-label" for="circle-k-filter">Circle K Stations</label>
+                            </li>
+                            <li>
+                                <input class="form-check-input filters-buttons" type="checkbox" value="Lotos" id="lotos-filter" checked>
+                                <label class="form-check-label" for="lotos-filter">Lotos Stations</label>
+                            </li>
+                            <li>
+                                <input class="form-check-input filters-buttons" type="checkbox" value="Moya" id="moya-filter" checked>
+                                <label class="form-check-label" for="moya-filter">Moya Stations</label>
+                            </li>
+                            <li>
+                                <input class="form-check-input filters-buttons" type="checkbox" value="Orlen" id="orlen-filter" checked>
+                                <label class="form-check-label" for="orlen-filter">Orlen Stations</label>
+                            </li>
+                            <li>
+                                <input class="form-check-input filters-buttons" type="checkbox" value="Shell" id="shell-filter" checked>
+                                <label class="form-check-label" for="shell-filter">Shell Stations</label>
+                            </li>
+                            <li>
+                                <input class="form-check-input filters-buttons" type="checkbox" value="Other" id="other-filter" checked>
+                                <label class="form-check-label" for="other-filter">Other Stations</label>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
             </div>
         </nav>
-
 
         <div id="alert-container" class="alert-container"></div>
 

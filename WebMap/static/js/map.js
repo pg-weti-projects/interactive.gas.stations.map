@@ -1,5 +1,5 @@
-import {createOsmLayer, createRouteLayer, createUserMarkerLayer, createGasStationsMarkersLayer} from './modules/layers.js'
-import {generateAllMarkers} from './modules/markers.js'
+import {createOsmLayer, createRouteLayer, createUserMarkerLayer, createGasStationsMarkersLayers} from './modules/layers.js'
+import {generateFeaturesMarkersEachStation} from './modules/markers.js'
 
 $(document).ready(function () {
 
@@ -15,7 +15,16 @@ $(document).ready(function () {
     // Gas Stations markers settings
     const gasStationsMarkersScale = 0.03;
     const gasStationsMarkersAnchor = [0.5, 1];
-    let gasStationsMarkersLayer;
+    let gasStationsMarkersLayers = {
+        'Amic': null,
+        'BP': null,
+        'Circle K': null,
+        'Lotos': null,
+        'Moya': null,
+        'Orlen': null,
+        'Other': null,
+        'Shell': null
+    }
 
     // User marker settings
     const userMarkerScale = 0.05;
@@ -50,8 +59,14 @@ $(document).ready(function () {
         map.addLayer(routeLayer);
         userMarkerLayer = createUserMarkerLayer(userMarkerScale, userMarkerAnchor)
         map.addLayer(userMarkerLayer);
-        gasStationsMarkersLayer = createGasStationsMarkersLayer();
-        map.addLayer(gasStationsMarkersLayer);
+
+        gasStationsMarkersLayers = createGasStationsMarkersLayers(gasStationsMarkersLayers);
+
+        for (let layer in gasStationsMarkersLayers)
+        {
+            map.addLayer(gasStationsMarkersLayers[layer]);
+        }
+
 
         // Set Zoom and Center Of Poland as the first view when website is loaded
         map.getView().setCenter(ol.proj.fromLonLat(centerPlCoords));
@@ -86,20 +101,38 @@ $(document).ready(function () {
             }
         });
 
-        // Adding interactive Gas Stations Markers
-        generateAllMarkers(gasStationsMarkersScale, gasStationsMarkersAnchor)
-            .then(features => {
-                const gasStationsMarkersSource = new ol.source.Vector({
-                    features: features,
-                });
+        $('.filters-buttons').change(function() {
+            var checkboxValue = $(this).val();
 
-                gasStationsMarkersLayer.setSource(gasStationsMarkersSource);
-            })
-            .catch(error => {
-                console.error('An error occured during try to generate all gas stations markers:', error);
-            });
+            if ($(this).is(':checked')) {
+                gasStationsMarkersLayers[checkboxValue].setVisible(true);
+            } else {
+                gasStationsMarkersLayers[checkboxValue].setVisible(false);
+            }
+        });
+
+        assignMarkersForEachGasStationLayer();
 
         addPopupWindowLogic();
+    }
+
+    /*Assign all Feature Objects to specific  gas station Layer*/
+    function assignMarkersForEachGasStationLayer() {
+        generateFeaturesMarkersEachStation(gasStationsMarkersScale, gasStationsMarkersAnchor)
+        .then(features => {
+
+            for(let key in gasStationsMarkersLayers) {
+                let station_features = features[key];
+
+                const gasStationsMarkersSource = new ol.source.Vector({
+                    features: station_features,
+                });
+                gasStationsMarkersLayers[key].setSource(gasStationsMarkersSource);
+            }
+        })
+        .catch(error => {
+            console.error('An error occurred during try to generate all gas stations markers:', error);
+        });
     }
 
 
