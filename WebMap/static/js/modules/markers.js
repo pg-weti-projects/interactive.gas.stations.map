@@ -84,7 +84,7 @@ export function generateAllMarkers(markersScale, markersAnchor) {
 
                     let marker = new ol.Feature({
                         geometry: new ol.geom.Point(station_lonlat_obj),
-                        name: `<b>Name: ${name}</b><br><b>Brand: ${brand}</b><br><b>Coordinates: ${lon}, ${lat}</b>`
+                        name: `<b>Name: ${name}</b><br><b>Brand: ${brand}</b><br><b>Longitude: ${lon}</b><br><b>Latitude: ${lat}</b>`
                     });
                     marker.setStyle(markerStyle);
 
