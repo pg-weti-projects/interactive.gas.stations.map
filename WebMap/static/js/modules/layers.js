@@ -16,7 +16,6 @@ export function createRouteLayer(routeStrokeStyle) {
     });
 }
 
-
 /*Create layer to put user marker on the map*/
 export function createUserMarkerLayer(userMarkerScale, userMarkerAnchor) {
     return new ol.layer.Vector({
@@ -32,7 +31,12 @@ export function createUserMarkerLayer(userMarkerScale, userMarkerAnchor) {
 }
 
 
-/*Create layer to put Gas Stations markers on the map*/
-export function createGasStationsMarkersLayer() {
-    return new ol.layer.Vector();
+/*Create layers for each station type and return dict with it where key is the name/brand station*/
+export function createGasStationsMarkersLayers(gasStationsMarkersLayers) {
+    for (let layer in gasStationsMarkersLayers) {
+        if (gasStationsMarkersLayers.hasOwnProperty(layer)) {
+            gasStationsMarkersLayers[layer] = new ol.layer.Vector();
+        }
+    }
+    return gasStationsMarkersLayers;
 }
