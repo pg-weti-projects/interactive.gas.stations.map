@@ -13,8 +13,8 @@ class MongoManager:
     def __init__(self, config_path='./config.ini'):
         self.cfg = configparser.ConfigParser()
         self.cfg.read(config_path)   # TODO maybe pass as argument in the future
-        self.url = "mongodb://localhost:27017"
-        self.client = pymongo.MongoClient(self.url,  # TODO maybe create ConfigManager class
+        self.client = pymongo.MongoClient(self.cfg.get('mongo', 'host'),
+                                          self.cfg.getint('mongo', 'port'),
                                           username=self.cfg.get('mongo', 'username'),
                                           password=self.cfg.get('mongo', 'password'))
         self.db = self.client['GIS']
