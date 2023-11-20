@@ -35,9 +35,39 @@
                     <button type="button" class="find-nearest-station btn btn-danger" disabled>Find nearest station</button>
                 </div>
 
+
                 <div class="map-filter-buttons ms-auto">
+
                     <div class="dropdown" data-bs-theme="dark">
-                          <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuClickableInside"
+                          <button class="btn btn-secondary dropdown-toggle" type="button" id="map-styles-dropdown-button"
+                                  data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"> Maps
+                          </button>
+
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButtonDark">
+                            <li>
+                                <input class="form-check-input" type="radio" value="OSMLayer" name="flexRadioDefault" id="OSMLayer" checked>
+                                <label class="form-check-label" for="OSMLayer">OSM Map</label>
+                            </li>
+                            <li>
+                                <input class="form-check-input" type="radio" value="RoadOnDemand" name="flexRadioDefault" id="RoadOnDemand">
+                                <label class="form-check-label" for="RoadOnDemand">Road On Demand</label>
+                            </li>
+                            <li>
+                                <input class="form-check-input" type="radio" value="Aerial" name="flexRadioDefault" id="Aerial">
+                                <label class="form-check-label" for="Aerial">Aerial</label>
+                            </li>
+                            <li>
+                                <input class="form-check-input" type="radio" value="AerialWithLabelsOnDemand" name="flexRadioDefault" id="AerialWithLabelsOnDemand">
+                                <label class="form-check-label" for="AerialWithLabelsOnDemand">Aerial With Labels</label>
+                            </li>
+                            <li>
+                                <input class="form-check-input" type="radio" value="CanvasDark" name="flexRadioDefault" id="CanvasDark">
+                                <label class="form-check-label" for="CanvasDark">Canvas Dark</label>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="dropdown" data-bs-theme="dark">
+                          <button class="btn btn-secondary dropdown-toggle" type="button" id="filters-dropdown-button"
                                   data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"> Stations Filter
                           </button>
 
