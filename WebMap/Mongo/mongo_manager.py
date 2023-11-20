@@ -1,6 +1,7 @@
 import configparser
 import pymongo
 import logging
+from math import radians, cos, sin, asin, sqrt
 
 log = logging.getLogger(__name__)
 
@@ -62,7 +63,8 @@ class MongoManager:
                     log.info(f"Successfully added a new record with _id: {_id}")
                 else:
                     log.warning(
-                        f"Record with coordinates ({float_lat_str}, {float_lon_str}) already exists in the database. Skipping.")
+                        f"Record with coordinates ({float_lat_str}, {float_lon_str}) already exists in the database. "
+                        f"Skipping.")
             except pymongo.errors.PyMongoError as e:
                 log.error(f"Error while communicating with the database: {str(e)}")
 
@@ -96,3 +98,23 @@ class MongoManager:
     @property
     def is_database_exist(self):
         return self.gas_stations_collection.count_documents({})
+
+    @staticmethod
+    def find_nearest_coordinate(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
+        """
+        Calculates the distance between two coordinates using the Haversine formula.
+
+        :return: Distance between the two coordinates in kilometers
+        """
+        earth_radius = 6371
+
+        lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+
+        lambda_lon = lon2 - lon1
+        lambda_lat = lat2 - lat1
+
+        hav_cos = cos(lat1) * cos(lat2)
+        haversine = sin(lambda_lat / 2) ** 2 + hav_cos * sin(lambda_lon / 2) ** 2
+        distance = 2 * earth_radius * asin(sqrt(haversine))
+
+        return distance

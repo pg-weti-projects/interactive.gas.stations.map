@@ -6,6 +6,8 @@ from Mongo.mongo_manager import MongoManager
 
 app = Flask(__name__)
 
+mongo_manager = MongoManager()
+
 
 @app.route("/")
 def interactive_map() -> flask.Response | str:
@@ -13,9 +15,7 @@ def interactive_map() -> flask.Response | str:
     Main website page with map. Check that database exists before launching the website. If not redirect to
     create_database first.
     """
-    mongo_manager = MongoManager()
     if mongo_manager.is_database_exist > 0:
-
         return render_template("base.html")
     else:
 
@@ -27,9 +27,35 @@ def data_map() -> flask.Response:
     """
     Route api with gas stations data.
     """
-    mongo_manager = MongoManager()
     data = mongo_manager.get_records_from_db()
     return jsonify(data)
+
+
+@app.route("/api/find_nearest_station/<float:lon>/<float:lat>")
+def find_nearest_station(lon: float, lat: float) -> flask.Response:
+    """
+    Route API to find the nearest gas station.
+
+    :return: Coordinates of the nearest gas station.
+    """
+    response = data_map()
+    data = response.json
+    nearest_stations = []
+
+    for item in data:
+        lat_find = item.get("lat")
+        lon_find = item.get("lon")
+        nearest_coordination = mongo_manager.find_nearest_coordinate(lon, lat, lon_find, lat_find)
+
+        station_data = {
+            'lat': lat_find,
+            'lon': lon_find,
+            'km': nearest_coordination
+        }
+
+        nearest_stations.append(station_data)
+    nearest_station = min(nearest_stations, key=lambda x: x['km'])
+    return jsonify({"stationCoords": [nearest_station['lon'], nearest_station['lat']]})
 
 
 @app.route("/database")
@@ -38,7 +64,6 @@ def create_database() -> flask.Response:
     Route witch creating / updating database.
     """
     osm_manager = OsmManager()
-    mongo_manager = MongoManager()
 
     received_data = osm_manager.get_data_from_overpass_api()
 
