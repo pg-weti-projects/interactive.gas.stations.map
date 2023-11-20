@@ -105,7 +105,6 @@ export function generateFeaturesMarkersEachStation(markersScale, markersAnchor) 
 
             Promise.all(promises)
                 .then(() => {
-                    console.log(markersFeatures);
                     resolve(markersFeatures);
                 })
                 .catch(error => {

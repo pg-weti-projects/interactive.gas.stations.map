@@ -73,8 +73,5 @@ html, body {
 
 .map-filter-buttons {
     margin-right: 5px;
+    display: flex;
 }
-
-
-
-

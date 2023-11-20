@@ -1,4 +1,4 @@
-import {createOsmLayer, createRouteLayer, createUserMarkerLayer, createGasStationsMarkersLayers} from './modules/layers.js'
+import {createMapLayers, createRouteLayer, createUserMarkerLayer, createGasStationsMarkersLayers} from './modules/layers.js'
 import {generateFeaturesMarkersEachStation} from './modules/markers.js'
 
 $(document).ready(function () {
@@ -8,6 +8,15 @@ $(document).ready(function () {
     const apiKey = 'AAPKaf77b11595124e6295c9f2679a38fb9dJbeoPRXhOddgVhIXAURQSmut9oqQkOmIzIDqSr7EK-_Vyjo3Wm_mYzt-dUi6WT49';
 
     // Map Settings
+    const mapLayersStyles = {
+        'OSMLayer': 0,
+        'RoadOnDemand': 1,
+        'Aerial': 2,
+        'AerialWithLabelsOnDemand': 3,
+        'CanvasDark': 4,
+    };
+    let latestMapStyle = 'OSMLayer';
+    let layersStyles;
     const zoomLevel = 7;
     const centerPlCoords = [19, 52];
     let map;
@@ -44,15 +53,14 @@ $(document).ready(function () {
 
     // Initialize all basic components on the website
     function init() {
+        layersStyles = createMapLayers(mapLayersStyles);
         map = new ol.Map({
+            layers: layersStyles,
             target: 'map',
             projection: defaultProjection,
             displayProjection: defaultProjection,
             units: 'degrees',
         });
-
-        // Add OSM layer
-        map.addLayer(createOsmLayer());
 
         // Add additional layers to the map
         routeLayer = createRouteLayer(routeStrokeStyle)
@@ -66,7 +74,6 @@ $(document).ready(function () {
         {
             map.addLayer(gasStationsMarkersLayers[layer]);
         }
-
 
         // Set Zoom and Center Of Poland as the first view when website is loaded
         map.getView().setCenter(ol.proj.fromLonLat(centerPlCoords));
@@ -102,7 +109,7 @@ $(document).ready(function () {
         });
 
         $('.filters-buttons').change(function() {
-            var checkboxValue = $(this).val();
+            let checkboxValue = $(this).val();
 
             if ($(this).is(':checked')) {
                 gasStationsMarkersLayers[checkboxValue].setVisible(true);
@@ -111,8 +118,17 @@ $(document).ready(function () {
             }
         });
 
-        assignMarkersForEachGasStationLayer();
+        // Handle changing map style
+        $('.dropdown-menu input[type="radio"]').change(function() {
+            let selectedValue = $(this).val();
 
+            layersStyles[mapLayersStyles[latestMapStyle]].setVisible(false);
+
+            layersStyles[mapLayersStyles[selectedValue]].setVisible(true);
+            latestMapStyle = selectedValue;
+        });
+
+        assignMarkersForEachGasStationLayer();
         addPopupWindowLogic();
     }
 
