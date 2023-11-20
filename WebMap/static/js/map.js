@@ -99,10 +99,19 @@ $(document).ready(function () {
                 // if road is on the map, we need to remove it before mark another route
                 removeRouteIfExist();
 
-                const stationCoords = [18.7256813, 53.4409896] // TODO TEMP COORDS UNTIL WE DONT HAVE FINDING NEAREST STATION FUNC THAT RETURN COORDS
-
-                updateRoute(userMarkerCoords, stationCoords)
-
+                // make an AJAX request to the Flask route to get nearest station
+                $.ajax({
+                    url: `/api/find_nearest_station/${userMarkerCoords[0]}/${userMarkerCoords[1]}`,
+                    type: 'GET',
+                    dataType: 'json',
+                    success: function (response) {
+                        const stationCoords = response.stationCoords;
+                        updateRoute(userMarkerCoords, stationCoords);
+                    },
+                    error: function (error) {
+                        showAlert('Error occurred while finding the nearest station.', 'danger');
+                    }
+                });
             } else {
                 showAlert('Please place a marker first.', 'warning');
             }
@@ -237,6 +246,7 @@ $(document).ready(function () {
 
             const user_marked_lonlat = event.feature.getGeometry().clone().transform('EPSG:3857', defaultProjection);
             userMarkerCoords = user_marked_lonlat.getCoordinates();
+            console.log('User marker coords: (', userMarkerCoords[0], ',', userMarkerCoords[1], ')');
             showAlert(`Successfully placed marker (${userMarkerCoords[0]}, ${userMarkerCoords[1]})`, 'success');
         });
     }
