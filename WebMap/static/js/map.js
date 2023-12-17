@@ -327,5 +327,44 @@ $(document).ready(function () {
         }
     });
 
+    /*Listens if add new station marker button has been clicked and after that user has possibility to add new marker
+    * on the map.*/
+    $('#addNewStationMarker').on('click', function() {
+        console.log('Add new Marker button clicked!');
+        // TODO TBD
+    });
+
+
+    /*Listens if edit station marker button has been clicked and after that user has possibility to select gas station
+    * marker to edit.*/
+    $('#editStationMarker').on('click', function() {
+        $('#editMarkerModal').modal('show');
+    });
+
+    $('#confirmEdit').on('click', function() {
+        console.log("Edited selected marker!")
+        // TODO MAKE LOGIC FOR SELECT MARKER AND EDIT HIS INFO
+
+        $('#editMarkerModal').modal('hide');
+    });
+
+
+    /*Listens if remove station marker button has been clicked and after that user has possibility to select gas station
+    * marker to remove.*/
+    $('#removeStationMarker').on('click', function() {
+        $('#removeMarkerModal').modal('show');
+    });
+
+    /*Listens if remove button in remove modal has been clicked and removing selected marker on the map and in database*/
+    $('#confirmRemove').on('click', function() {
+        console.log('Removing marker....');
+        // TODO MAKE LOGIC FOR SELECT MARKER AND REMOVE IT FROM THE MAP AND DB
+
+        $('#removeMarkerModal').modal('hide');
+    });
+
     init();
+
+
+
 });

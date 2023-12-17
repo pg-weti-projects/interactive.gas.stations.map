@@ -67,6 +67,10 @@ html, body {
     margin-right: 10px;
 }
 
+.find-nearest-station {
+    white-space: nowrap;
+}
+
 .dropdown {
     margin-left: 10px;
 }
@@ -74,4 +78,18 @@ html, body {
 .map-filter-buttons {
     margin-right: 5px;
     display: flex;
+}
+
+.add-new-station-marker {
+    white-space: nowrap;
+    margin-right: 10px;
+}
+
+.edit-station-marker {
+    white-space: nowrap;
+    margin-right: 10px;
+}
+
+.remove-station-marker {
+    white-space: nowrap;
 }
