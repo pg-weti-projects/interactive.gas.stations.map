@@ -287,10 +287,19 @@ $(document).ready(function () {
             popover = new bootstrap.Popover(element, {
                 placement: 'top',
                 html: true,
+                title: ' <a class="ol-popup-closer" href="#"></a>',
                 content: feature.get('name'),
             });
             popover.show();
         });
+
+        document.addEventListener('click', function (event) {
+            var closer = event.target.closest('.ol-popup-closer');
+            if (closer) {
+                popover.hide();
+            }
+        });
+
 
         // Change pointer when user hover over Feature object
         map.on('pointermove', function (event) {
