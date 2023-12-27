@@ -343,9 +343,66 @@ $(document).ready(function () {
     * on the map.*/
     $('#addNewStationMarker').on('click', function() {
         console.log('Add new Marker button clicked!');
-        // TODO TBD
+        if (drawControl) {
+            map.removeControl(drawControl);
+            drawControl.setActive(false);
+            map.removeInteraction(drawControl);
+            drawControl = null;
+        }
+
+        drawControl = new ol.interaction.Draw({
+            source: userMarkerLayer.getSource(),
+            type: 'Point',
+        });
+
+        map.addInteraction(drawControl);
+        drawControl.setActive(true);
+
+        drawControl.on('drawend', function (event) {
+            map.removeInteraction(drawControl);
+            drawControl.setActive(false);
+
+            userMarkerLayer.getSource().clear();
+
+            $(".add-marker").text('Change Marker Location');
+
+            const user_marked_lonlat = event.feature.getGeometry().clone().transform('EPSG:3857', defaultProjection);
+            userMarkerCoords = user_marked_lonlat.getCoordinates();
+            console.log('User marker coords: (', userMarkerCoords[0], ',', userMarkerCoords[1], ')');
+            showAlert(`Successfully placed marker (${userMarkerCoords[0]}, ${userMarkerCoords[1]})`, 'success');
+
+            $('#addMarkerModal').modal('show');
+        });
     });
 
+    $('#confirmAddMarker').on('click', function() {
+        var Name = $('#Name').val();
+        var Brand = $('#Brand').val();
+
+        var data = {
+            lon: userMarkerCoords[0].toFixed(7),
+            lat: userMarkerCoords[1].toFixed(7),
+            name: Name,
+            brand: Brand,
+        }
+        $.ajax({
+            url: 'api/add_marker',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+
+            success: function(response) {
+                selectedMarker = null;
+                console.log("Update successful:", response);
+            },
+            error: function(error) {
+                console.error("Update failed:", error);
+            }
+        });
+
+        $('#addMarkerModal').modal('hide');
+        location.reload();
+    });
 
     /*Listens if edit station marker button has been clicked and after that user has possibility to select gas station
     * marker to edit.*/
@@ -370,17 +427,21 @@ $(document).ready(function () {
                 type: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify(updateData),
+
                 success: function(response) {
-                console.log("Update successful:", response);
+                    selectedMarker = null;
+                    console.log("Update successful:", response);
                 },
                 error: function(error) {
                     console.error("Update failed:", error);
                 }
-
             })
         }
-
+        else {
+            showAlert('No marker selected to edit', 'warning');
+        }
         $('#editMarkerModal').modal('hide');
+        location.reload();
     });
 
 
@@ -393,7 +454,6 @@ $(document).ready(function () {
     /*Listens if remove button in remove modal has been clicked and removing selected marker on the map and in database*/
     $('#confirmRemove').on('click', function() {
         console.log('Removing marker....');
-        console.log(selectedMarker.get('id'));
         if (selectedMarker) {
             // Make request to delete the marker from the backend
             $.ajax({
@@ -416,17 +476,13 @@ $(document).ready(function () {
                     }
 
                     console.log('Marker removed from the database:', response);
+                    selectedMarker = null;
                     showAlert('Marker removed successfully', 'success');
                 },
                 error: function (error) {
                     // Handle error response from the backend
                     console.error('Error removing marker from the database:', error);
                     showAlert('Error removing marker from the database', 'danger');
-                },
-                complete: function () {
-                    // Reset the selected marker and hide the modal
-                    selectedMarker = null;
-                    $('#removeMarkerModal').modal('hide');
                 }
             });
         } else {

@@ -113,6 +113,38 @@
             </div>
         </nav>
 
+        <div class="modal fade" id="addMarkerModal" tabindex="-1" aria-labelledby="addMarkerModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="addMarkerModalLabel">Enter data for marker</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="Name" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="Name">
+                        </div>
+                        <div class="mb-3">
+                            <label for="Brand" class="form-label">Brand</label>
+                            <input type="text" class="form-control" id="Brand">
+                        </div>
+                        <div class="mb-3">
+                            <label for="markerIcon" class="form-label">Choose marker icon</label>
+                            <select class="form-select" id="markerIcon">
+                                <option value="icon1">Icon 1</option>
+                                <option value="icon2">Icon 2</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="confirmAddMarker">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="modal fade" id="removeMarkerModal" tabindex="-1" aria-labelledby="removeMarkerModalLabel" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">

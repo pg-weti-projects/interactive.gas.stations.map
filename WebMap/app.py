@@ -31,6 +31,18 @@ def data_map() -> flask.Response:
     return jsonify(data)
 
 
+@app.route('/api/add_marker', methods=['POST'])
+def add_marker() -> flask.request:
+    try:
+        data = request.get_json()
+
+        mongo_manager.add_user_record(data)
+
+        return jsonify({'success': True, 'message': 'Marker removed successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
 @app.route("/api/update_data_marker", methods=["POST"])
 def update_data_marker() -> flask.request:
     """

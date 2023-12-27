@@ -3,6 +3,8 @@ import pymongo
 import logging
 from math import radians, cos, sin, asin, sqrt
 
+from bson import ObjectId
+
 log = logging.getLogger(__name__)
 
 
@@ -19,6 +21,15 @@ class MongoManager:
                                           username=self.cfg.get('mongo', 'username'),
                                           password=self.cfg.get('mongo', 'password'))
         self.db = self.client['GIS']
+
+    def generate_unique_id(self):
+        """
+        Generate a unique _id that does not exist in the specified MongoDB collection.
+        """
+        while True:
+            new_id = ObjectId()
+            if not self.gas_stations_collection.find_one({'_id': new_id}):
+                return str(new_id)
 
     def _check_and_add_element(self, row_data: dict) -> None:
         """
@@ -79,6 +90,14 @@ class MongoManager:
             self._check_and_add_element(rows_data)
         else:
             raise TypeError("Invalid data type when trying to insert it to mongoDB!")
+
+    def add_user_record(self, row_data: dict) -> None:
+        """
+            Add a new row of user input data.
+        """
+        new_id = self.generate_unique_id()
+        row_data['_id'] = new_id
+        self.gas_stations_collection.insert_one(row_data)
 
     def update_record(self, row_data: dict):
         """
