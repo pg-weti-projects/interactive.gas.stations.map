@@ -355,7 +355,30 @@ $(document).ready(function () {
 
     $('#confirmEdit').on('click', function() {
         console.log("Edited selected marker!")
-        // TODO MAKE LOGIC FOR SELECT MARKER AND EDIT HIS INFO
+
+        if (selectedMarker) {
+            var newName = $('#newName').val();
+            var newBrand = $('#newBrand').val();
+
+            var updateData = {
+                _id: selectedMarker.get('id'),
+                name: newName,
+                brand: newBrand,
+            }
+            $.ajax({
+                url: 'api/update_data_marker',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(updateData),
+                success: function(response) {
+                console.log("Update successful:", response);
+                },
+                error: function(error) {
+                    console.error("Update failed:", error);
+                }
+
+            })
+        }
 
         $('#editMarkerModal').modal('hide');
     });

@@ -8,7 +8,7 @@ log = logging.getLogger(__name__)
 
 class MongoManager:
     """
-    Class to connect with mongo database and handle all operations related to.
+        Class to connect with mongo database and handle all operations related to.
     """
 
     def __init__(self, config_path='./config.ini'):
@@ -22,7 +22,7 @@ class MongoManager:
 
     def _check_and_add_element(self, row_data: dict) -> None:
         """
-        Check if records exists in database. The record is added if it doesn't exist.
+            Check if records exists in database. The record is added if it doesn't exist.
         """
         _id = row_data['_id']
 
@@ -70,7 +70,7 @@ class MongoManager:
 
     def add_records_to_db(self, rows_data: list | dict) -> None:
         """
-        Add new rows with data to GIS mongo database and gasStations collection.
+            Add new rows with data to GIS mongo database and gasStations collection.
         """
         if isinstance(rows_data, list):
             for element in rows_data:
@@ -79,6 +79,15 @@ class MongoManager:
             self._check_and_add_element(rows_data)
         else:
             raise TypeError("Invalid data type when trying to insert it to mongoDB!")
+
+    def update_record(self, row_data: dict):
+        """
+            Update user-entered data to marker.
+        """
+        update_data = row_data.copy()
+        del update_data["_id"]
+
+        return self.gas_stations_collection.update_one({'_id': row_data['_id']}, {'$set': update_data})
 
     @property
     def gas_stations_collection(self):
