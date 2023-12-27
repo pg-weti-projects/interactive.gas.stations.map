@@ -90,7 +90,7 @@ class MongoManager:
         """
         try:
             gas_stations_data = list(
-                self.db.gasStations.find({}, {'_id': 0, 'lon': 1, 'lat': 1, 'name': 1, 'brand': 1}))
+                self.db.gasStations.find({}, {'_id': 1, 'lon': 1, 'lat': 1, 'name': 1, 'brand': 1}))
             return gas_stations_data
         except Exception as e:
             raise TypeError('Error downloading data: ', str(e))
@@ -98,6 +98,10 @@ class MongoManager:
     @property
     def is_database_exist(self):
         return self.gas_stations_collection.count_documents({})
+
+    def delete_record_from_db(self, _id):
+        _id_str = str(_id)
+        self.gas_stations_collection.delete_one({'_id': _id_str})
 
     @staticmethod
     def find_nearest_coordinate(lon1: float, lat1: float, lon2: float, lat2: float) -> float:

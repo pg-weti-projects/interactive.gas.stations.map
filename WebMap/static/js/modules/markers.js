@@ -9,6 +9,7 @@ export function generateFeaturesMarkersEachStation(markersScale, markersAnchor) 
 
             data.forEach(station => {
                 const promise = new Promise((resolve, reject) => {
+                    let _id = station._id;
                     let lon = station.lon;
                     let lat = station.lat;
                     let name = station.name;
@@ -17,6 +18,7 @@ export function generateFeaturesMarkersEachStation(markersScale, markersAnchor) 
                     let markerStyle;
 
                     let marker = new ol.Feature({
+                        id: _id,
                         geometry: new ol.geom.Point(station_lonlat_obj),
                         name: `<b>Name: ${name}</b><br><b>Brand: ${brand}</b><br><b>Longitude: ${lon}</b><br><b>Latitude: ${lat}</b>`
                     });

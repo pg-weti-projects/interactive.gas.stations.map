@@ -49,6 +49,7 @@ $(document).ready(function () {
     let drawControl = null;
     let roadOnMap = false;
     let popover;
+    let selectedMarker = null;
 
 
     // Initialize all basic components on the website
@@ -291,6 +292,8 @@ $(document).ready(function () {
                 content: feature.get('name'),
             });
             popover.show();
+
+             selectedMarker = feature;
         });
 
         document.addEventListener('click', function (event) {
@@ -367,8 +370,45 @@ $(document).ready(function () {
     /*Listens if remove button in remove modal has been clicked and removing selected marker on the map and in database*/
     $('#confirmRemove').on('click', function() {
         console.log('Removing marker....');
-        // TODO MAKE LOGIC FOR SELECT MARKER AND REMOVE IT FROM THE MAP AND DB
+        console.log(selectedMarker.get('id'));
+        if (selectedMarker) {
+            // Make request to delete the marker from the backend
+            $.ajax({
+                url: '/api/remove_marker',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ _id: selectedMarker.get('id')}),
+                success: function (response) {
+                    // Find and remove the marker from the map from gas stations markers layers
+                    const markerId = selectedMarker.get('id');
 
+                    for (let key in gasStationsMarkersLayers) {
+                        const layerSource = gasStationsMarkersLayers[key].getSource();
+                        const features = layerSource.getFeatures();
+
+                        const featureToRemove = features.find(feature => feature.get('id') === markerId);
+                        if (featureToRemove) {
+                            layerSource.removeFeature(featureToRemove);
+                        }
+                    }
+
+                    console.log('Marker removed from the database:', response);
+                    showAlert('Marker removed successfully', 'success');
+                },
+                error: function (error) {
+                    // Handle error response from the backend
+                    console.error('Error removing marker from the database:', error);
+                    showAlert('Error removing marker from the database', 'danger');
+                },
+                complete: function () {
+                    // Reset the selected marker and hide the modal
+                    selectedMarker = null;
+                    $('#removeMarkerModal').modal('hide');
+                }
+            });
+        } else {
+            showAlert('No marker selected to remove', 'warning');
+        }
         $('#removeMarkerModal').modal('hide');
     });
 
