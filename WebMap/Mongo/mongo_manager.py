@@ -109,8 +109,7 @@ class MongoManager:
         return self.gas_stations_collection.count_documents({})
 
     def delete_record_from_db(self, _id):
-        _id_str = str(_id)
-        self.gas_stations_collection.delete_one({'_id': _id_str})
+        return self.gas_stations_collection.delete_one({'_id': _id})
 
     @staticmethod
     def find_nearest_coordinate(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
