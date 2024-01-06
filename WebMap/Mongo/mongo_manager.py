@@ -118,7 +118,9 @@ class MongoManager:
         """
         try:
             gas_stations_data = list(
-                self.db.gasStations.find({}, {'_id': 1, 'lon': 1, 'lat': 1, 'name': 1, 'brand': 1}))
+                self.db.gasStations.find({}, {'_id': 1, 'lon': 1, 'lat': 1, 'name': 1, 'brand': 1,
+                                              'fuel:diesel': 1, 'fuel:lpg': 1, 'fuel:octane_95': 1, 'fuel:octane_98': 1,
+                                              'opening_hours': 1}))
             return gas_stations_data
         except Exception as e:
             raise TypeError('Error downloading data: ', str(e))

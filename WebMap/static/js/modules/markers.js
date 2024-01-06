@@ -14,13 +14,18 @@ export function generateFeaturesMarkersEachStation(markersScale, markersAnchor) 
                     let lat = station.lat;
                     let name = station.name;
                     let brand = station.brand;
+                    let diesel = station['fuel:diesel'];
+                    let lpg = station['fuel:lpg'];
+                    let octane_95 = station['fuel:octane_95'];
+                    let octane_98 = station['fuel:octane_98'];
+                    let opening_hours = station.opening_hours;
                     let station_lonlat_obj = ol.proj.fromLonLat([lon, lat]);
                     let markerStyle;
 
                     let marker = new ol.Feature({
                         id: _id,
                         geometry: new ol.geom.Point(station_lonlat_obj),
-                        name: `<b>Name: ${name}</b><br><b>Brand: ${brand}</b><br><b>Longitude: ${lon}</b><br><b>Latitude: ${lat}</b>`
+                        name: `<b>Name: ${name}</b><br><b>Brand: ${brand}</b><br><b>Longitude: ${lon}</b><br><b>Latitude: ${lat}</b><br><b>Diesel: ${diesel}</b><br><b>LPG: ${lpg}</b><br><b>Octane 95: ${octane_95}</b><br><b>Octane 98: ${octane_98}</b><br><b>Opening hours: ${opening_hours}</b>`
                     });
 
                     if (name === 'Circle K' || brand === 'Circle K') {

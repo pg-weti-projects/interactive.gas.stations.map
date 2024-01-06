@@ -252,6 +252,14 @@ $(document).ready(function () {
         });
     }
 
+    // Display popup on click
+    function disposePopover() {
+        if (popover) {
+            popover.dispose();
+            popover = undefined;
+        }
+    }
+
 
     /*Add handler for clicking on Feature objects. When user click on this object (e.g. Marker, Route), a popup will
     * appear with information about it. When user hover over Feature object, cursor will be changed. */
@@ -265,13 +273,6 @@ $(document).ready(function () {
         });
         map.addOverlay(popup);
 
-        // Display popup on click
-        function disposePopover() {
-            if (popover) {
-                popover.dispose();
-                popover = undefined;
-            }
-        }
 
         // Handle click on Feature object
         map.on('click', function (evt) {
@@ -318,6 +319,16 @@ $(document).ready(function () {
 
         // Close the popup when user click on the map and do something
         map.on('movestart', disposePopover);
+    }
+
+    function extractValue(inputString, keyword) {
+        var startIndex = inputString.indexOf(keyword);
+        if (startIndex !== -1) {
+            startIndex += keyword.length;
+            var endIndex = inputString.indexOf('<', startIndex);
+            return endIndex !== -1 ? inputString.substring(startIndex, endIndex).trim() : "undefined";
+        }
+        return "undefined";
     }
 
 
@@ -378,12 +389,22 @@ $(document).ready(function () {
     $('#confirmAddMarker').on('click', function() {
         var Name = $('#Name').val();
         var Brand = $('#Brand').val();
+        var Diesel = $('#Diesel').val();
+        var LPG = $('#LPG').val();
+        var Octane95 = $('#Octane95').val();
+        var Octane98 = $('#Octane98').val();
+        var OpeningHours = $('#OpeningHours').val();
 
         var data = {
             lon: userMarkerCoords[0].toFixed(7),
             lat: userMarkerCoords[1].toFixed(7),
             name: Name,
             brand: Brand,
+            diesel: Diesel,
+            lpg: LPG,
+            octane_95: Octane95,
+            octane_98: Octane98,
+            opening_hours: OpeningHours,
         }
         $.ajax({
             url: 'api/add_marker',
@@ -407,6 +428,29 @@ $(document).ready(function () {
     /*Listens if edit station marker button has been clicked and after that user has possibility to select gas station
     * marker to edit.*/
     $('#editStationMarker').on('click', function() {
+
+        var existingData = {
+                name: selectedMarker.get('name'),
+            };
+        disposePopover();
+        var extractedName = extractValue(existingData.name, "Name:");
+        var extractedBrand = extractValue(existingData.name, "Brand:");
+        var extractedDiesel = extractValue(existingData.name, "Diesel:");
+        var extractedLPG = extractValue(existingData.name, "LPG:");
+        var extractedOctane95 = extractValue(existingData.name, "Octane 95:");
+        var extractedOctane98 = extractValue(existingData.name, "Octane 98:");
+        var extractedOpeningHours = extractValue(existingData.name, "Opening hours:");
+
+
+        // Pre-fill input fields with existing data
+        $('#newName').val(extractedName);
+        $('#newBrand').val(extractedBrand);
+        $('#newDiesel').val(extractedDiesel);
+        $('#newLPG').val(extractedLPG);
+        $('#newOctane95').val(extractedOctane95);
+        $('#newOctane98').val(extractedOctane98);
+        $('#newOpeningHours').val(extractedOpeningHours);
+
         $('#editMarkerModal').modal('show');
     });
 
@@ -414,13 +458,24 @@ $(document).ready(function () {
         console.log("Edited selected marker!")
 
         if (selectedMarker) {
+
             var newName = $('#newName').val();
             var newBrand = $('#newBrand').val();
+            var newDiesel = $('#newDiesel').val();
+            var newLPG = $('#newLPG').val();
+            var newOctane95 = $('#newOctane95').val();
+            var newOctane98 = $('#newOctane98').val();
+            var newOpeningHours = $('#newOpeningHours').val();
 
             var updateData = {
                 _id: selectedMarker.get('id'),
                 name: newName,
                 brand: newBrand,
+                diesel: newDiesel,
+                lpg: newLPG,
+                octane_95: newOctane95,
+                octane_98: newOctane98,
+                opening_hours: newOpeningHours,
             }
             $.ajax({
                 url: 'api/update_data_marker',
@@ -448,6 +503,7 @@ $(document).ready(function () {
     /*Listens if remove station marker button has been clicked and after that user has possibility to select gas station
     * marker to remove.*/
     $('#removeStationMarker').on('click', function() {
+        disposePopover();
         $('#removeMarkerModal').modal('show');
     });
 
