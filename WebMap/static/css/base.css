@@ -93,3 +93,14 @@ html, body {
 .remove-station-marker {
     white-space: nowrap;
 }
+
+.ol-popup-closer {
+    text-decoration: none;
+    position: absolute;
+    top: 3px;
+    right: 8px;
+}
+
+.ol-popup-closer:after {
+    content: "✖";
+}

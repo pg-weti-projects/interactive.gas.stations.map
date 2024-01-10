@@ -3,12 +3,14 @@ import pymongo
 import logging
 from math import radians, cos, sin, asin, sqrt
 
+from bson import ObjectId
+
 log = logging.getLogger(__name__)
 
 
 class MongoManager:
     """
-    Class to connect with mongo database and handle all operations related to.
+        Class to connect with mongo database and handle all operations related to.
     """
 
     def __init__(self, config_path='./config.ini'):
@@ -20,9 +22,18 @@ class MongoManager:
                                           password=self.cfg.get('mongo', 'password'))
         self.db = self.client['GIS']
 
+    def generate_unique_id(self):
+        """
+        Generate a unique _id that does not exist in the specified MongoDB collection.
+        """
+        while True:
+            new_id = ObjectId()
+            if not self.gas_stations_collection.find_one({'_id': new_id}):
+                return str(new_id)
+
     def _check_and_add_element(self, row_data: dict) -> None:
         """
-        Check if records exists in database. The record is added if it doesn't exist.
+            Check if records exists in database. The record is added if it doesn't exist.
         """
         _id = row_data['_id']
 
@@ -70,7 +81,7 @@ class MongoManager:
 
     def add_records_to_db(self, rows_data: list | dict) -> None:
         """
-        Add new rows with data to GIS mongo database and gasStations collection.
+            Add new rows with data to GIS mongo database and gasStations collection.
         """
         if isinstance(rows_data, list):
             for element in rows_data:
@@ -79,6 +90,23 @@ class MongoManager:
             self._check_and_add_element(rows_data)
         else:
             raise TypeError("Invalid data type when trying to insert it to mongoDB!")
+
+    def add_user_record(self, row_data: dict) -> None:
+        """
+            Add a new row of user input data.
+        """
+        new_id = self.generate_unique_id()
+        row_data['_id'] = new_id
+        self.gas_stations_collection.insert_one(row_data)
+
+    def update_record(self, row_data: dict):
+        """
+            Update user-entered data to marker.
+        """
+        update_data = row_data.copy()
+        del update_data["_id"]
+
+        return self.gas_stations_collection.update_one({'_id': row_data['_id']}, {'$set': update_data})
 
     @property
     def gas_stations_collection(self):
@@ -90,7 +118,9 @@ class MongoManager:
         """
         try:
             gas_stations_data = list(
-                self.db.gasStations.find({}, {'_id': 0, 'lon': 1, 'lat': 1, 'name': 1, 'brand': 1}))
+                self.db.gasStations.find({}, {'_id': 1, 'lon': 1, 'lat': 1, 'name': 1, 'brand': 1,
+                                              'fuel:diesel': 1, 'fuel:lpg': 1, 'fuel:octane_95': 1, 'fuel:octane_98': 1,
+                                              'opening_hours': 1}))
             return gas_stations_data
         except Exception as e:
             raise TypeError('Error downloading data: ', str(e))
@@ -98,6 +128,9 @@ class MongoManager:
     @property
     def is_database_exist(self):
         return self.gas_stations_collection.count_documents({})
+
+    def delete_record_from_db(self, _id):
+        return self.gas_stations_collection.delete_one({'_id': _id})
 
     @staticmethod
     def find_nearest_coordinate(lon1: float, lat1: float, lon2: float, lat2: float) -> float:

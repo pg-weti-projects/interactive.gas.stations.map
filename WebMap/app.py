@@ -1,5 +1,5 @@
 import flask
-from flask import Flask, render_template, jsonify, redirect, url_for
+from flask import Flask, render_template, jsonify, redirect, url_for, request
 
 from osm_manager import OsmManager
 from Mongo.mongo_manager import MongoManager
@@ -29,6 +29,46 @@ def data_map() -> flask.Response:
     """
     data = mongo_manager.get_records_from_db()
     return jsonify(data)
+
+
+@app.route('/api/add_marker', methods=['POST'])
+def add_marker() -> flask.request:
+    try:
+        data = request.get_json()
+
+        mongo_manager.add_user_record(data)
+
+        return jsonify({'success': True, 'message': 'Marker removed successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route("/api/update_data_marker", methods=["POST"])
+def update_data_marker() -> flask.request:
+    """
+        Route api to update marker data.
+    """
+    try:
+        data = request.get_json()
+
+        mongo_manager.update_record(data)
+
+        return jsonify({'success': True, 'message': 'Marker removed successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/remove_marker', methods=['POST'])
+def remove_marker() -> flask.request:
+    try:
+        data = request.get_json()
+        marker_id = data.get('_id')
+
+        mongo_manager.delete_record_from_db(marker_id)
+
+        return jsonify({'success': True, 'message': 'Marker removed successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
 
 @app.route("/api/find_nearest_station/<float:lon>/<float:lat>")
