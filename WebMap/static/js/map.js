@@ -350,6 +350,14 @@ $(document).ready(function () {
         }
     });
 
+    /* Listens for the modal hide event to perform cleanup when the "Cancel" button is clicked.
+     * It clears the userMarkerLayer, resets userMarkerCoords, and updates UI elements.*/
+    $('#addMarkerModal').on('hide.bs.modal', function () {
+        userMarkerLayer.getSource().clear();
+        userMarkerCoords = null;
+        $(".add-marker").text('Cancel');
+    });
+
     /*Listens if add new station marker button has been clicked and after that user has possibility to add new marker
     * on the map.*/
     $('#addNewStationMarker').on('click', function() {
