@@ -83,8 +83,8 @@ def find_nearest_station(lon: float, lat: float) -> flask.Response:
     nearest_stations = []
 
     for item in data:
-        lat_find = item.get("lat")
-        lon_find = item.get("lon")
+        lat_find = float(item.get("lat"))
+        lon_find = float(item.get("lon"))
         nearest_coordination = mongo_manager.find_nearest_coordinate(lon, lat, lon_find, lat_find)
 
         station_data = {
