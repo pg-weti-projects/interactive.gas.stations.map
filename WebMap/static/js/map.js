@@ -298,7 +298,7 @@ $(document).ready(function () {
         });
 
         document.addEventListener('click', function (event) {
-            var closer = event.target.closest('.ol-popup-closer');
+            let closer = event.target.closest('.ol-popup-closer');
             if (closer) {
                 popover.hide();
             }
@@ -322,10 +322,10 @@ $(document).ready(function () {
     }
 
     function extractValue(inputString, keyword) {
-        var startIndex = inputString.indexOf(keyword);
+        let startIndex = inputString.indexOf(keyword);
         if (startIndex !== -1) {
             startIndex += keyword.length;
-            var endIndex = inputString.indexOf('<', startIndex);
+            let endIndex = inputString.indexOf('<', startIndex);
             return endIndex !== -1 ? inputString.substring(startIndex, endIndex).trim() : "undefined";
         }
         return "undefined";
@@ -388,30 +388,29 @@ $(document).ready(function () {
             const user_marked_lonlat = event.feature.getGeometry().clone().transform('EPSG:3857', defaultProjection);
             userMarkerCoords = user_marked_lonlat.getCoordinates();
             console.log('User marker coords: (', userMarkerCoords[0], ',', userMarkerCoords[1], ')');
-            showAlert(`Successfully placed marker (${userMarkerCoords[0]}, ${userMarkerCoords[1]})`, 'success');
 
             $('#addMarkerModal').modal('show');
         });
     });
 
     $('#confirmAddMarker').on('click', function() {
-        var Name = $('#Name').val();
-        var Brand = $('#Brand').val();
-        var Diesel = $('#Diesel').val();
-        var LPG = $('#LPG').val();
-        var Octane95 = $('#Octane95').val();
-        var Octane98 = $('#Octane98').val();
-        var OpeningHours = $('#OpeningHours').val();
+        let Name = $('#Name').val();
+        let Brand = $('#Brand').val();
+        let Diesel = $('#Diesel').val();
+        let LPG = $('#LPG').val();
+        let Octane95 = $('#octane95').val();
+        let Octane98 = $('#octane98').val();
+        let OpeningHours = $('#openingHours').val();
 
-        var data = {
+        let data = {
             lon: userMarkerCoords[0].toFixed(7),
             lat: userMarkerCoords[1].toFixed(7),
             name: Name,
             brand: Brand,
-            diesel: Diesel,
-            lpg: LPG,
-            octane_95: Octane95,
-            octane_98: Octane98,
+            "fuel:diesel": Diesel,
+            "fuel:lpg": LPG,
+            "fuel:octane_95": Octane95,
+            "fuel:octane_98": Octane98,
             opening_hours: OpeningHours,
         }
         $.ajax({
@@ -437,17 +436,17 @@ $(document).ready(function () {
     * marker to edit.*/
     $('#editStationMarker').on('click', function() {
 
-        var existingData = {
+        let existingData = {
                 name: selectedMarker.get('name'),
             };
         disposePopover();
-        var extractedName = extractValue(existingData.name, "Name:");
-        var extractedBrand = extractValue(existingData.name, "Brand:");
-        var extractedDiesel = extractValue(existingData.name, "Diesel:");
-        var extractedLPG = extractValue(existingData.name, "LPG:");
-        var extractedOctane95 = extractValue(existingData.name, "Octane 95:");
-        var extractedOctane98 = extractValue(existingData.name, "Octane 98:");
-        var extractedOpeningHours = extractValue(existingData.name, "Opening hours:");
+        let extractedName = extractValue(existingData.name, "Name:");
+        let extractedBrand = extractValue(existingData.name, "Brand:");
+        let extractedDiesel = extractValue(existingData.name, "Diesel:");
+        let extractedLPG = extractValue(existingData.name, "LPG:");
+        let extractedOctane95 = extractValue(existingData.name, "Octane 95:");
+        let extractedOctane98 = extractValue(existingData.name, "Octane 98:");
+        let extractedOpeningHours = extractValue(existingData.name, "Opening hours:");
 
 
         // Pre-fill input fields with existing data
@@ -467,22 +466,22 @@ $(document).ready(function () {
 
         if (selectedMarker) {
 
-            var newName = $('#newName').val();
-            var newBrand = $('#newBrand').val();
-            var newDiesel = $('#newDiesel').val();
-            var newLPG = $('#newLPG').val();
-            var newOctane95 = $('#newOctane95').val();
-            var newOctane98 = $('#newOctane98').val();
-            var newOpeningHours = $('#newOpeningHours').val();
+            let newName = $('#newName').val();
+            let newBrand = $('#newBrand').val();
+            let newDiesel = $('#newDiesel').val();
+            let newLPG = $('#newLPG').val();
+            let newOctane95 = $('#newOctane95').val();
+            let newOctane98 = $('#newOctane98').val();
+            let newOpeningHours = $('#newOpeningHours').val();
 
-            var updateData = {
+            let updateData = {
                 _id: selectedMarker.get('id'),
                 name: newName,
                 brand: newBrand,
-                diesel: newDiesel,
-                lpg: newLPG,
-                octane_95: newOctane95,
-                octane_98: newOctane98,
+                "fuel:diesel": newDiesel,
+                "fuel:lpg": newLPG,
+                "fuel:octane_95": newOctane95,
+                "fuel:octane_98": newOctane98,
                 opening_hours: newOpeningHours,
             }
             $.ajax({
@@ -505,6 +504,7 @@ $(document).ready(function () {
         }
         $('#editMarkerModal').modal('hide');
         location.reload();
+        showAlert(`Successfully edited marker with coords: (${userMarkerCoords[0]}, ${userMarkerCoords[1]})`, 'success');
     });
 
 
