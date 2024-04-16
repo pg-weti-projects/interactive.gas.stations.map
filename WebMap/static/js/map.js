@@ -31,6 +31,7 @@ $(document).ready(function () {
         'Lotos': null,
         'Moya': null,
         'Orlen': null,
+        'MOL': null,
         'Other': null,
         'Shell': null
     }

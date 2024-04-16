@@ -1,7 +1,7 @@
 /*Create dictionary with lists of all stations markers ( Feature objects )*/
 export function generateFeaturesMarkersEachStation(markersScale, markersAnchor) {
     return new Promise((resolve, reject) => {
-        let markersFeatures = {'Orlen': [], 'BP': [], 'Lotos': [], 'Circle K': [], 'Amic': [], 'Moya': [], 'Shell': [], 'Other': []};
+        let markersFeatures = {'Orlen': [], 'BP': [], 'Lotos': [], 'Circle K': [], 'Amic': [], 'Moya': [], 'Shell': [], 'MOL': [], 'Other': []};
         fetch('/api/gas_station_data')
         .then(response => response.json())
         .then(data => {
@@ -80,6 +80,14 @@ export function generateFeaturesMarkersEachStation(markersScale, markersAnchor) 
                         markerStyle = new ol.style.Style({
                             image: new ol.style.Icon({
                                 src: '/static/img/gas_station_point_orlen.png',
+                                scale: markersScale,
+                                anchor: markersAnchor,
+                            })
+                        });
+                    } else if(name === 'MOL' || brand === 'MOL') {
+                        markerStyle = new ol.style.Style({
+                            image: new ol.style.Icon({
+                                src: '/static/img/gas_station_point_mol.png',
                                 scale: markersScale,
                                 anchor: markersAnchor,
                             })
