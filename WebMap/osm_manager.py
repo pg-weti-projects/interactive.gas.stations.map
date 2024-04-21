@@ -90,10 +90,9 @@ class OsmManager:
         :return: Received data from api
         """
         response = requests.get(self.__url, params={"data": self.__overpass_query})
-
         received_data = response.json()
-        data_list = []
 
+        data_list = []
         for record in received_data['elements']:
             data_list.append(self._add_tags_to_main_dict(record))
 
