@@ -1,9 +1,13 @@
 import configparser
+import hashlib
+from typing import Dict, List, Any
+
 import pymongo
 import logging
 from math import radians, cos, sin, asin, sqrt
 
 from bson import ObjectId
+from pymongo.results import InsertOneResult
 
 log = logging.getLogger(__name__)
 
@@ -110,6 +114,7 @@ class MongoManager:
 
     @property
     def gas_stations_collection(self):
+        """Property method to access the 'gas stations' collection in the database."""
         return self.db['gasStations']
 
     def get_records_from_db(self):
@@ -151,3 +156,60 @@ class MongoManager:
         distance = 2 * earth_radius * asin(sqrt(haversine))
 
         return distance
+
+    @property
+    def users_collection(self):
+        """Property method to access the 'users' collection in the database."""
+        return self.db['users']
+
+    def register_user(self, username: str, password: str) -> bool:
+        """Registers a new user in the system with a unique ID, storing their hashed password."""
+        id_user = self.generate_unique_id()
+        hashed_password = hashlib.sha256(password.encode()).hexdigest()
+        user_data = {
+            '_id': id_user,
+            'username': username,
+            'password': hashed_password
+        }
+        exist = self.users_collection.find_one({'username': username})
+        if exist is not None:
+            log.error(f"This user exist in the database: ")
+            return False
+        else:
+            self.users_collection.insert_one(user_data)
+            return True
+
+    def login_user(self, username: str, password: str):
+        """Logs in a user by checking their username and password against stored data."""
+        hashed_password = hashlib.sha256(password.encode()).hexdigest()
+        user = self.users_collection.find_one({'username': username, 'password': hashed_password})
+        if user:
+            log.info(f"User '{username}' successfully logged in.")
+            return True, user['_id']
+        else:
+            log.warning(f"Failed login attempt for user '{username}'.")
+            return False, None
+
+    @property
+    def favorite_collection(self):
+        """Property method to access the 'favorite' collection in the database."""
+        return self.db['favorite']
+
+    def add_favorites(self, favorite_id: int, user_id: str) -> InsertOneResult:
+        """Adds a favorite gas station for a user."""
+        return self.favorite_collection.insert_one({'favorite_id': favorite_id, 'user_id': user_id})
+
+    def get_favorites(self, user_id: str) -> dict[str, list[dict[str, Any]]]:
+        """Retrieves favorite gas stations for a given user."""
+        fav_gas_stations = self.favorite_collection.find({'user_id': user_id})
+        result = []
+        for fav_gas_station in fav_gas_stations:
+            station = self.gas_stations_collection.find_one({'_id': fav_gas_station['favorite_id']})
+            result.append({
+                "_id": station["_id"],
+                "name": station["name"],
+                "brand": station["brand"],
+                "lon": station["lon"],
+                "lat": station["lat"]
+            })
+        return {"favoriteStations": result}
