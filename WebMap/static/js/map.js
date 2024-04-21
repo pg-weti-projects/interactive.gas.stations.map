@@ -1,5 +1,5 @@
 import {createMapLayers, createRouteLayer, createUserMarkerLayer, createGasStationsMarkersLayers} from './modules/layers.js'
-import {generateFeaturesMarkersEachStation} from './modules/markers.js'
+import {generateFeaturesMarkersEachStation, groupStationsByBrand} from './modules/markers.js'
 
 $(document).ready(function () {
 
@@ -33,7 +33,8 @@ $(document).ready(function () {
         'Orlen': null,
         'MOL': null,
         'Other': null,
-        'Shell': null
+        'Shell': null,
+        'Favorites': null
     }
 
     // User marker settings
@@ -71,7 +72,6 @@ $(document).ready(function () {
         map.addLayer(userMarkerLayer);
 
         gasStationsMarkersLayers = createGasStationsMarkersLayers(gasStationsMarkersLayers);
-
         for (let layer in gasStationsMarkersLayers)
         {
             map.addLayer(gasStationsMarkersLayers[layer]);
@@ -125,33 +125,40 @@ $(document).ready(function () {
         $('.filters-buttons').change(function() {
             let checkboxValue = $(this).val();
 
-            if (checkboxValue === 'Favorites' && $(this).is(':checked')) {
-                fetchFavoriteStationsFromDatabase().then(response => {
-                    let favoriteStations = response;
-                    let favoriteStationIds = favoriteStations.map(station => station._id);
+            if (checkboxValue === "Favorites") {
+                if ($(this).is(':checked')) {
+                    fetchFavoriteStationsFromDatabase().then(response => {
+                        let favoriteStations = response;
 
-                    console.log(favoriteStationIds);
-
-                    for (let key in gasStationsMarkersLayers) {
-                        gasStationsMarkersLayers[key].setVisible(false);
-                    }
-
-                    if (Array.isArray(favoriteStations)) {
-                        favoriteStationIds.forEach(stationId => {
-                            let favoriteStation = favoriteStations.find(station => station._id === stationId);
-                            if (favoriteStation) {
-                                let stationBrand = favoriteStation.brand;
-                                if (gasStationsMarkersLayers[stationBrand]) {
-                                    gasStationsMarkersLayers[stationBrand].setVisible(true);
-                                }
+                        // If the favorite filter is selected, all other filters are disabled and unchecked
+                        for (let key in gasStationsMarkersLayers) {
+                            if (key !== "Favorites") {
+                                gasStationsMarkersLayers[key].setVisible(false);
                             }
-                        });
-                    } else {
-                        console.error('Favorite stations data is not in the expected format.');
+                        }
+                        $('.filters-buttons').not(this).prop('checked', false);
+
+                        if (Array.isArray(favoriteStations)) {
+                            let favoriteStationsMarkers = groupStationsByBrand(favoriteStations, gasStationsMarkersScale,
+                                gasStationsMarkersAnchor, {"Favorites": []}, false);
+
+                            const gasStationsMarkersSource = new ol.source.Vector({
+                                features: favoriteStationsMarkers['markersFeatures']["Favorites"],
+                            });
+                            gasStationsMarkersLayers["Favorites"].setSource(gasStationsMarkersSource);
+                        } else {
+                            console.error('Favorite stations data is not in the expected format.');
+                        }
+                    }).catch(error => {
+                        console.error('Error fetching favorite stations:', error);
+                    });
+                } else {
+                    // If the user unclick favorites filter, then we check all other filters and show them on the map
+                    $('.filters-buttons').not(this).prop('checked', true);
+                    for (let key in gasStationsMarkersLayers) {
+                        gasStationsMarkersLayers[key].setVisible(true);
                     }
-                }).catch(error => {
-                    console.error('Error fetching favorite stations:', error);
-                });
+                }
             } else {
                 if ($(this).is(':checked')) {
                     gasStationsMarkersLayers[checkboxValue].setVisible(true);
@@ -160,7 +167,6 @@ $(document).ready(function () {
                 }
             }
         });
-
 
         // Handle changing map style
         $('.dropdown-menu input[type="radio"]').change(function() {
@@ -196,7 +202,6 @@ $(document).ready(function () {
     function assignMarkersForEachGasStationLayer() {
         generateFeaturesMarkersEachStation(gasStationsMarkersScale, gasStationsMarkersAnchor)
         .then(features => {
-
             for(let key in gasStationsMarkersLayers) {
                 let station_features = features[key];
 
@@ -301,6 +306,7 @@ $(document).ready(function () {
             showAlert(`Successfully placed marker (${userMarkerCoords[0]}, ${userMarkerCoords[1]})`, 'success');
         });
     }
+
 
     // Display popup on click
     function disposePopover() {
@@ -641,9 +647,5 @@ $(document).ready(function () {
         });
     });
 
-
     init();
-
-
-
 });
