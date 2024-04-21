@@ -1,36 +1,15 @@
 import flask
 from flask import Flask, render_template, jsonify, redirect, url_for, request
-from functools import wraps
-
-from werkzeug import Response
 
 from osm_manager import OsmManager
 from Mongo.mongo_manager import MongoManager
 
 app = Flask(__name__)
-app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
 
 mongo_manager = MongoManager()
 
 
-def login_required(test):
-    """
-    Decorator to ensure user authentication before accessing a route.
-
-    :return: The decorated function.
-    """
-    @wraps(test)
-    def wrap(*args, **kwargs):
-        if 'user_id' in flask.session:
-            return test(*args, **kwargs)
-        else:
-            return redirect(url_for('login_user'))
-
-    return wrap
-
-
 @app.route("/")
-@login_required
 def interactive_map() -> flask.Response | str:
     """
     Main website page with map. Check that database exists before launching the website. If not redirect to
@@ -119,37 +98,6 @@ def find_nearest_station(lon: float, lat: float) -> flask.Response:
     return jsonify({"stationCoords": [nearest_station['lon'], nearest_station['lat']]})
 
 
-@app.route('/api/add_to_favorites', methods=['POST'])
-def add_to_favorites() -> flask.Response:
-    """
-    Endpoint to add a gas station to user favorites via API.
-
-    :return: JSON response indicating the success or failure of the operation.
-    """
-    data = request.json
-    favorite_id = data['A']['id']
-    user_id = flask.session['user_id']
-
-    mongo_manager.add_favorites(favorite_id, user_id)
-    return jsonify({'message': 'Station added to favorites successfully'})
-
-
-@app.route('/api/favorite_stations', methods=['GET'])
-def favorite_stations() -> flask.Response:
-    """
-    Endpoint to retrieve a user's favorite gas stations via API.
-
-    :return: JSON response containing the favorite gas stations or a message if there are none.
-    """
-    user_id = flask.session['user_id']
-    favorite_station = mongo_manager.get_favorites(str(user_id))
-
-    if favorite_station is not None:
-        return jsonify(favorite_station)
-    else:
-        return jsonify({'message': 'No favorites'})
-
-
 @app.route("/database")
 def create_database() -> flask.Response:
     """
@@ -162,57 +110,6 @@ def create_database() -> flask.Response:
     mongo_manager.add_records_to_db(received_data)
 
     return redirect(url_for('interactive_map'))
-
-
-@app.route('/login', methods=['GET', 'POST'])
-def login_user() -> str | Response:
-    """
-    Handles user login via a web interface.
-
-    :return: Rendered template for the login page or redirect to the interactive map.
-    """
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-
-        success, user_id = mongo_manager.login_user(username, password)
-        if success is False:
-            return render_template('login.html', error='Username or password is incorrect')
-        else:
-            flask.session['user_id'] = str(user_id)
-            return redirect(url_for('interactive_map'))
-
-    return render_template('login.html')
-
-
-@app.route('/register', methods=['GET', 'POST'])
-def register_user() -> str | Response:
-    """
-    Registers a new user via a web interface.
-
-    :return: Rendered template for the registration page or redirect to the login page.
-    """
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        result = mongo_manager.register_user(username, password)
-        if result is False:
-            return render_template('register.html', error='Username already exists')
-        else:
-            return redirect(url_for('login_user'))
-
-    return render_template('register.html')
-
-
-@app.route('/logout', methods=['POST'])
-def logout() -> flask.Response:
-    """
-    Logs out the current user and redirects to the login page.
-
-    :return: Redirect to the login page.
-    """
-    flask.session.pop('user_id', None)
-    return redirect(url_for('login_user'))
 
 
 if __name__ == "__main__":
