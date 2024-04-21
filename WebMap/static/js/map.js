@@ -119,48 +119,15 @@ $(document).ready(function () {
             }
         });
 
-        /* Listens for changes in the filter buttons. If the 'Favorites' checkbox is checked,
-         * it fetches the user's favorite stations from the database and updates the map markers accordingly.
-         * If other checkboxes are checked/unchecked, it shows/hides the corresponding gas station markers.*/
         $('.filters-buttons').change(function() {
             let checkboxValue = $(this).val();
 
-            if (checkboxValue === 'Favorites' && $(this).is(':checked')) {
-                fetchFavoriteStationsFromDatabase().then(response => {
-                    let favoriteStations = response;
-                    let favoriteStationIds = favoriteStations.map(station => station._id);
-
-                    console.log(favoriteStationIds);
-
-                    for (let key in gasStationsMarkersLayers) {
-                        gasStationsMarkersLayers[key].setVisible(false);
-                    }
-
-                    if (Array.isArray(favoriteStations)) {
-                        favoriteStationIds.forEach(stationId => {
-                            let favoriteStation = favoriteStations.find(station => station._id === stationId);
-                            if (favoriteStation) {
-                                let stationBrand = favoriteStation.brand;
-                                if (gasStationsMarkersLayers[stationBrand]) {
-                                    gasStationsMarkersLayers[stationBrand].setVisible(true);
-                                }
-                            }
-                        });
-                    } else {
-                        console.error('Favorite stations data is not in the expected format.');
-                    }
-                }).catch(error => {
-                    console.error('Error fetching favorite stations:', error);
-                });
+            if ($(this).is(':checked')) {
+                gasStationsMarkersLayers[checkboxValue].setVisible(true);
             } else {
-                if ($(this).is(':checked')) {
-                    gasStationsMarkersLayers[checkboxValue].setVisible(true);
-                } else {
-                    gasStationsMarkersLayers[checkboxValue].setVisible(false);
-                }
+                gasStationsMarkersLayers[checkboxValue].setVisible(false);
             }
         });
-
 
         // Handle changing map style
         $('.dropdown-menu input[type="radio"]').change(function() {
@@ -174,22 +141,6 @@ $(document).ready(function () {
 
         assignMarkersForEachGasStationLayer();
         addPopupWindowLogic();
-    }
-
-    /*Function to fetch user's favorite stations from the database*/
-    function fetchFavoriteStationsFromDatabase() {
-        return new Promise((resolve, reject) => {
-            $.ajax({
-                url: '/api/favorite_stations',
-                type: 'GET',
-                success: function(response) {
-                    resolve(response.favoriteStations);
-                },
-                error: function(error) {
-                    reject(error);
-                }
-            });
-        });
     }
 
     /*Assign all Feature Objects to specific  gas station Layer*/
@@ -336,13 +287,10 @@ $(document).ready(function () {
             }
             popup.setPosition(evt.coordinate);
 
-            const titleElement = document.createElement('div');
-            titleElement.innerHTML = '<span class="favorite-marker" style="cursor: pointer;">★</span><a class="ol-popup-closer" href="#"></a>';
-
             popover = new bootstrap.Popover(element, {
                 placement: 'top',
                 html: true,
-                title: titleElement,
+                title: ' <a class="ol-popup-closer" href="#"></a>',
                 content: feature.get('name'),
             });
             popover.show();
@@ -351,28 +299,10 @@ $(document).ready(function () {
         });
 
         document.addEventListener('click', function (event) {
-            if (event.target.classList.contains('favorite-marker'))
-            {
-                $.ajax({
-                    url: 'api/add_to_favorites',
-                    type: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify(selectedMarker),
-
-                    success: function(response) {
-                        console.log('Added gas station to favorite list', response);
-                    },
-                    error: function(error) {
-                        console.error("Added failed:", error);
-                    }
-                });
+            let closer = event.target.closest('.ol-popup-closer');
+            if (closer) {
+                popover.hide();
             }
-            else{
-                let closer = event.target.closest('.ol-popup-closer');
-                if (closer) {
-                    popover.hide();
-                }
-                }
         });
 
 
@@ -625,22 +555,6 @@ $(document).ready(function () {
         }
         $('#removeMarkerModal').modal('hide');
     });
-
-    /*Function handles the click event on the logout button.*/
-    $('#log-out').click(function() {
-        $.ajax({
-            url: '/logout',
-            type: 'POST',
-            success: function(response) {
-                console.log('User logged out:', response);
-                window.location.href = '/login';
-            },
-            error: function(error) {
-                console.error('Error logging out:', error);
-            }
-        });
-    });
-
 
     init();
 

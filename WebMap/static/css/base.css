@@ -104,11 +104,3 @@ html, body {
 .ol-popup-closer:after {
     content: "✖";
 }
-
-.favorite-marker {
-    text-decoration: none;
-    position: absolute;
-    top: 3px;
-    right: 40px;
-    color: #f1c40f;
-}
