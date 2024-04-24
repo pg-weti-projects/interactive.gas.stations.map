@@ -110,5 +110,13 @@ html, body {
     position: absolute;
     top: 3px;
     right: 40px;
-    color: #f1c40f;
+}
+
+.favorite-marker-star {
+    color: gold;
+}
+
+.favorite-marker-dash {
+    color: red;
+    font-size: 20px;
 }

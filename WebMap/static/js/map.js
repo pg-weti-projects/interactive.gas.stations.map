@@ -1,5 +1,5 @@
 import {createMapLayers, createRouteLayer, createUserMarkerLayer, createGasStationsMarkersLayers} from './modules/layers.js'
-import {generateFeaturesMarkersEachStation} from './modules/markers.js'
+import {generateFeaturesMarkersEachStation, groupStationsByBrand} from './modules/markers.js'
 
 $(document).ready(function () {
 
@@ -33,7 +33,8 @@ $(document).ready(function () {
         'Orlen': null,
         'MOL': null,
         'Other': null,
-        'Shell': null
+        'Shell': null,
+        'Favorites': null
     }
 
     // User marker settings
@@ -71,7 +72,6 @@ $(document).ready(function () {
         map.addLayer(userMarkerLayer);
 
         gasStationsMarkersLayers = createGasStationsMarkersLayers(gasStationsMarkersLayers);
-
         for (let layer in gasStationsMarkersLayers)
         {
             map.addLayer(gasStationsMarkersLayers[layer]);
@@ -125,33 +125,40 @@ $(document).ready(function () {
         $('.filters-buttons').change(function() {
             let checkboxValue = $(this).val();
 
-            if (checkboxValue === 'Favorites' && $(this).is(':checked')) {
-                fetchFavoriteStationsFromDatabase().then(response => {
-                    let favoriteStations = response;
-                    let favoriteStationIds = favoriteStations.map(station => station._id);
+            if (checkboxValue === "Favorites") {
+                if ($(this).is(':checked')) {
+                    fetchFavoriteStationsFromDatabase().then(response => {
+                        let favoriteStations = response;
 
-                    console.log(favoriteStationIds);
-
-                    for (let key in gasStationsMarkersLayers) {
-                        gasStationsMarkersLayers[key].setVisible(false);
-                    }
-
-                    if (Array.isArray(favoriteStations)) {
-                        favoriteStationIds.forEach(stationId => {
-                            let favoriteStation = favoriteStations.find(station => station._id === stationId);
-                            if (favoriteStation) {
-                                let stationBrand = favoriteStation.brand;
-                                if (gasStationsMarkersLayers[stationBrand]) {
-                                    gasStationsMarkersLayers[stationBrand].setVisible(true);
-                                }
+                        // If the favorite filter is selected, all other filters are disabled and unchecked
+                        for (let key in gasStationsMarkersLayers) {
+                            if (key !== "Favorites") {
+                                gasStationsMarkersLayers[key].setVisible(false);
                             }
-                        });
-                    } else {
-                        console.error('Favorite stations data is not in the expected format.');
+                        }
+                        $('.filters-buttons').not(this).prop('checked', false);
+
+                        if (Array.isArray(favoriteStations)) {
+                            let favoriteStationsMarkers = groupStationsByBrand(favoriteStations, gasStationsMarkersScale,
+                                gasStationsMarkersAnchor, {"Favorites": []}, false);
+
+                            const gasStationsMarkersSource = new ol.source.Vector({
+                                features: favoriteStationsMarkers['markersFeatures']["Favorites"],
+                            });
+                            gasStationsMarkersLayers["Favorites"].setSource(gasStationsMarkersSource);
+                        } else {
+                            console.error('Favorite stations data is not in the expected format.');
+                        }
+                    }).catch(error => {
+                        console.error('Error fetching favorite stations:', error);
+                    });
+                } else {
+                    // If the user unclick favorites filter, then we check all other filters and show them on the map
+                    $('.filters-buttons').not(this).prop('checked', true);
+                    for (let key in gasStationsMarkersLayers) {
+                        gasStationsMarkersLayers[key].setVisible(true);
                     }
-                }).catch(error => {
-                    console.error('Error fetching favorite stations:', error);
-                });
+                }
             } else {
                 if ($(this).is(':checked')) {
                     gasStationsMarkersLayers[checkboxValue].setVisible(true);
@@ -160,7 +167,6 @@ $(document).ready(function () {
                 }
             }
         });
-
 
         // Handle changing map style
         $('.dropdown-menu input[type="radio"]').change(function() {
@@ -196,7 +202,6 @@ $(document).ready(function () {
     function assignMarkersForEachGasStationLayer() {
         generateFeaturesMarkersEachStation(gasStationsMarkersScale, gasStationsMarkersAnchor)
         .then(features => {
-
             for(let key in gasStationsMarkersLayers) {
                 let station_features = features[key];
 
@@ -302,6 +307,7 @@ $(document).ready(function () {
         });
     }
 
+
     // Display popup on click
     function disposePopover() {
         if (popover) {
@@ -337,42 +343,44 @@ $(document).ready(function () {
             popup.setPosition(evt.coordinate);
 
             const titleElement = document.createElement('div');
-            titleElement.innerHTML = '<span class="favorite-marker" style="cursor: pointer;">★</span><a class="ol-popup-closer" href="#"></a>';
+            isInFavorites(feature).then(isFavorite => {
 
-            popover = new bootstrap.Popover(element, {
-                placement: 'top',
-                html: true,
-                title: titleElement,
-                content: feature.get('name'),
+                const favoriteMarker = isFavorite ? '<span class="favorite-marker-dash">-</span>' :
+                    '<span class="favorite-marker-star">★</span>';
+                titleElement.innerHTML = '<span class="favorite-marker" style="cursor: pointer;">' + favoriteMarker +
+                    '</span>' + '<a class="ol-popup-closer" href="#"></a>';
+
+                popover = new bootstrap.Popover(element, {
+                    placement: 'top',
+                    html: true,
+                    title: titleElement,
+                    content: feature.get('name'),
+                });
+                popover.show();
+
+                selectedMarker = feature;
+            }).catch(error => {
+                console.error("Error checking favorites:", error);
             });
-            popover.show();
-
-             selectedMarker = feature;
         });
 
         document.addEventListener('click', function (event) {
-            if (event.target.classList.contains('favorite-marker'))
-            {
-                $.ajax({
-                    url: 'api/add_to_favorites',
-                    type: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify(selectedMarker),
-
-                    success: function(response) {
-                        console.log('Added gas station to favorite list', response);
-                    },
-                    error: function(error) {
-                        console.error("Added failed:", error);
-                    }
-                });
-            }
-            else{
+            if (event.target.classList.contains('favorite-marker-dash')) {
+                if (!isInFavorites(selectedMarker)) {
+                    addToFavorites(selectedMarker);
+                } else {
+                    removeFromFavorites(selectedMarker);
+                }
+            } else if (event.target.classList.contains('favorite-marker-star')) {
+                if (isInFavorites(selectedMarker)) {
+                    addToFavorites(selectedMarker);
+                }
+            } else{
                 let closer = event.target.closest('.ol-popup-closer');
                 if (closer) {
                     popover.hide();
                 }
-                }
+            }
         });
 
 
@@ -390,6 +398,87 @@ $(document).ready(function () {
 
         // Close the popup when user click on the map and do something
         map.on('movestart', disposePopover);
+    }
+
+    /** Sends an AJAX request to add the current feature to the user's favorites.
+     * Updates the UI accordingly upon success.
+     * @param {Object} feature - The feature object to be added to favorites. */
+    function addToFavorites(feature) {
+        $.ajax({
+            url: 'api/add_to_favorites',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(feature),
+
+            success: function (response) {
+                console.log('Added gas station to favorite list', response);
+
+                // Update UI
+                const favoriteMarker = document.querySelector('.favorite-marker');
+                if (favoriteMarker) {
+                    favoriteMarker.innerHTML = '-';
+                    favoriteMarker.classList.remove('favorite-marker-star');
+                    favoriteMarker.classList.add('favorite-marker-dash');
+                }
+            },
+            error: function (error) {
+                console.error("Added failed:", error);
+            }
+        });
+    }
+
+    /** Sends an AJAX request to check if the provided feature is in the user's favorites.
+     * @param {Object} feature - The feature object to be checked.
+     * @returns {Promise<boolean>} - A promise resolving to true if the feature is in favorites, false otherwise. */
+    function isInFavorites(feature) {
+        const stationId = feature.get('id');
+        return new Promise((resolve, reject) => {
+            $.ajax({
+                url: '/api/check_favorite',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ stationId: stationId }),
+                success: function (response) {
+                    resolve(response.isFavorite);
+                },
+                error: function (error) {
+                    console.error("Error checking favorites:", error);
+                    reject(error);
+                }
+            });
+        });
+    }
+
+    /** Sends an AJAX request to remove the provided feature from the user's favorites.
+     * Updates the UI accordingly upon success.
+     * @param {Object} feature - The feature object to be removed from favorites. */
+    function removeFromFavorites(feature) {
+        const stationId = feature.get('id');
+        $.ajax({
+            url: '/api/remove_from_favorites',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ stationId: stationId }),
+            success: function (response) {
+                console.log('Removed gas station from favorites:', response);
+                gasStationsMarkersLayers["Favorites"].getSource().getFeatures().forEach(function (feat) {
+                if (feat.get('id') === stationId) {
+                    gasStationsMarkersLayers["Favorites"].getSource().removeFeature(feat);
+                }
+                });
+
+                // Update UI
+                const favoriteMarker = document.querySelector('.favorite-marker-dash');
+                if (favoriteMarker) {
+                    favoriteMarker.innerHTML = '★';
+                    favoriteMarker.classList.remove('favorite-marker-dash');
+                    favoriteMarker.classList.add('favorite-marker-star');
+                }
+            },
+            error: function (error) {
+                console.error("Error removing from favorites:", error);
+            }
+        });
     }
 
     function extractValue(inputString, keyword) {
@@ -641,9 +730,5 @@ $(document).ready(function () {
         });
     });
 
-
     init();
-
-
-
 });
