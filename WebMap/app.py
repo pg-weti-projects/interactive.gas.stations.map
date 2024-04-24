@@ -150,6 +150,40 @@ def favorite_stations() -> flask.Response:
         return jsonify({'message': 'No favorites'})
 
 
+@app.route('/api/check_favorite', methods=['POST'])
+def check_favorite() -> flask.Response:
+    """
+    Endpoint to check if a gas station is in the user's favorites.
+
+    :return: JSON response indicating whether the gas station is a favorite or not.
+    """
+    user_id = flask.session['user_id']
+    data = request.json
+    station_id = data['stationId']
+    favorite_station = mongo_manager.check_favorite(int(station_id), str(user_id))
+    if not favorite_station:
+        return jsonify({"isFavorite": False})
+
+    return jsonify({"isFavorite": True})
+
+
+@app.route('/api/remove_from_favorites', methods=['POST'])
+def remove_from_favorites() -> tuple[Response, int]:
+    """
+    Endpoint to remove a gas station from the user's favorites.
+
+    :return: JSON response confirming the success or failure of the removal operation.
+    """
+    user_id = flask.session['user_id']
+    data = request.json
+    station_id = data['stationId']
+    result = mongo_manager.remove_favorite(int(station_id), str(user_id))
+    if result is False:
+        return jsonify({"success": False, "message": "Gas station is not in favorites."}), 404
+    else:
+        return jsonify({"success": True, "message": "Gas station removed from favorites."}), 200
+
+
 @app.route("/database")
 def create_database() -> flask.Response:
     """
@@ -195,7 +229,8 @@ def register_user() -> str | Response:
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        result = mongo_manager.register_user(username, password)
+        average_fuel = request.form.get('average_fuel')
+        result = mongo_manager.register_user(username, password, average_fuel)
         if result is False:
             return render_template('register.html', error='Username already exists')
         else:
