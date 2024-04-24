@@ -39,16 +39,30 @@ $(document).ready(function () {
     // User marker settings
     const userMarkerScale = 0.05;
     const userMarkerAnchor = [0.5, 1];
+
     let userMarkerLayer;
     let userMarkerCoords = null;
 
-    // Route settings
+    let aMarkerLayer;
+    let aMarkerCoords = null;
+    let isAMarkerOnMap = false;
+
+    let bMarkerLayer;
+    let bMarkerCoords  = null;
+    let isBMarkerOnMap = false;
+
+
+    // Routes settings
     const routeStrokeStyle = { color: "hsl(205, 100%, 50%)", width: 4, opacity: 0.6 };
-    let routeLayer;
+    let routeMarkerLayer;
+    let roadMarkerOnMap = false;
+
+    let routeABMarkersLayer;
+    let roadABMarkerOnMap = false;
+
 
     // Other settings
     let drawControl = null;
-    let roadOnMap = false;
     let popover;
     let selectedMarker = null;
 
@@ -65,13 +79,22 @@ $(document).ready(function () {
         });
 
         // Add additional layers to the map
-        routeLayer = createRouteLayer(routeStrokeStyle)
-        map.addLayer(routeLayer);
-        userMarkerLayer = createUserMarkerLayer(userMarkerScale, userMarkerAnchor)
+        routeMarkerLayer = createRouteLayer(routeStrokeStyle);
+        map.addLayer(routeMarkerLayer);
+
+        routeABMarkersLayer = createRouteLayer(routeStrokeStyle);
+        map.addLayer(routeABMarkersLayer);
+
+        userMarkerLayer = createUserMarkerLayer(userMarkerScale, userMarkerAnchor, 'static/img/user_marker.png');
         map.addLayer(userMarkerLayer);
 
-        gasStationsMarkersLayers = createGasStationsMarkersLayers(gasStationsMarkersLayers);
+        aMarkerLayer = createUserMarkerLayer(userMarkerScale, userMarkerAnchor, 'static/img/a_marker.png');
+        map.addLayer(aMarkerLayer);
 
+        bMarkerLayer = createUserMarkerLayer(userMarkerScale, userMarkerAnchor, 'static/img/b_marker.png');
+        map.addLayer(bMarkerLayer);
+
+        gasStationsMarkersLayers = createGasStationsMarkersLayers(gasStationsMarkersLayers);
         for (let layer in gasStationsMarkersLayers)
         {
             map.addLayer(gasStationsMarkersLayers[layer]);
@@ -92,14 +115,24 @@ $(document).ready(function () {
 
         $(".add-marker").click(function () {
             showAlert('Place marker on the map', 'info');
-            addUserMarker();
+            addUserMarker(userMarkerLayer, ".add-marker");
+        });
+
+        $(".add-a-marker").click(function () {
+            showAlert('Place A marker on the map', 'info');
+            addUserMarker(aMarkerLayer, ".add-a-marker");
+        });
+
+        $(".add-b-marker").click(function () {
+            showAlert('Place B marker on the map', 'info');
+            addUserMarker(bMarkerLayer, ".add-b-marker");
         });
 
         $('.find-nearest-station').click(function () {
             if (userMarkerCoords !== null) {
 
                 // if road is on the map, we need to remove it before mark another route
-                removeRouteIfExist();
+                removeRouteIfExist("userMarker");
 
                 // make an AJAX request to the Flask route to get nearest station
                 $.ajax({
@@ -114,6 +147,22 @@ $(document).ready(function () {
                         showAlert('Error occurred while finding the nearest station.', 'danger');
                     }
                 });
+            } else {
+                showAlert('Please place a marker first.', 'warning');
+            }
+        });
+
+        /*After click this button a route between A and B marker will be designated*/
+        $('.find-best-route').click(function () {
+            if (aMarkerCoords !== null && bMarkerCoords !== null) {
+                console.log("FINDING ROUTE BETWEEN A AND B!");
+                console.log("A COORDS:", aMarkerCoords);
+                console.log("B COORDS:", bMarkerCoords);
+
+                // if road is on the map, we need to remove it before mark another route
+                removeRouteIfExist("ABMarker");
+
+                updateABRoute();
             } else {
                 showAlert('Please place a marker first.', 'warning');
             }
@@ -143,6 +192,16 @@ $(document).ready(function () {
         addPopupWindowLogic();
     }
 
+
+    /*If user put A and B marker on the map, find-best-route button is unlocked*/
+    function checkIfBothMarkersOnTheMap() {
+        if (isAMarkerOnMap && isBMarkerOnMap)
+        {
+            $('.find-best-route').prop('disabled', false);
+        }
+    }
+
+
     /*Assign all Feature Objects to specific  gas station Layer*/
     function assignMarkersForEachGasStationLayer() {
         generateFeaturesMarkersEachStation(gasStationsMarkersScale, gasStationsMarkersAnchor)
@@ -162,8 +221,14 @@ $(document).ready(function () {
         });
     }
 
+    function updateABRoute()
+    {
+        roadABMarkerOnMap = true;
+        // TODO: prepare function which designate route between A and B marker with all dependencies
+    }
 
-    /*Add route to routeLayer between two points (default user marker and station marker). Displays information
+
+    /*Add route to routeMarkerLayer between two points (default user marker and station marker). Displays information
     * about route ( Distance and Travel Time ) */
     function updateRoute(userMarkerCoords, stationCoords) {
 
@@ -196,9 +261,9 @@ $(document).ready(function () {
             const routeSource = new ol.source.Vector({
                 features: routeFeatures,
             });
-            routeLayer.setSource(routeSource);
+            routeMarkerLayer.setSource(routeSource);
 
-            roadOnMap = true;
+            roadMarkerOnMap = true;
 
             showAlert('Found nearest station! Drawing route...', 'success');
         })
@@ -209,17 +274,24 @@ $(document).ready(function () {
     }
 
 
-    /*Remove route from the map if exist*/
-    function removeRouteIfExist() {
-        if (roadOnMap) {
-            routeLayer.getSource().clear();
-            roadOnMap = false;
+    /*Remove selected route from the map if exist*/
+    function removeRouteIfExist(routeLayerType) {
+        if (routeLayerType === "userMarker") {
+            if (roadMarkerOnMap) {
+                routeMarkerLayer.getSource().clear();
+                roadMarkerOnMap = false;
+            }
+        } else if (routeLayerType === "ABMarker") {
+            if (roadABMarkerOnMap) {
+                routeABMarkersLayer.getSource().clear();
+                roadABMarkerOnMap = false;
+            }
         }
     }
 
 
     /*Function activate drawing mode to add marker in place selected by user.*/
-    function addUserMarker() {
+    function addUserMarker(markerLayer, markerClass) {
         if (drawControl) {
             map.removeControl(drawControl);
             drawControl.setActive(false);
@@ -228,7 +300,7 @@ $(document).ready(function () {
         }
 
         drawControl = new ol.interaction.Draw({
-            source: userMarkerLayer.getSource(),
+            source: markerLayer.getSource(),
             type: 'Point',
         });
 
@@ -239,17 +311,35 @@ $(document).ready(function () {
             map.removeInteraction(drawControl);
             drawControl.setActive(false);
 
-            userMarkerLayer.getSource().clear();
-
-            $(".add-marker").text('Change Marker Location');
-            $('.find-nearest-station').prop('disabled', false);
-
-            removeRouteIfExist();
+            markerLayer.getSource().clear();
 
             const user_marked_lonlat = event.feature.getGeometry().clone().transform('EPSG:3857', defaultProjection);
-            userMarkerCoords = user_marked_lonlat.getCoordinates();
-            console.log('User marker coords: (', userMarkerCoords[0], ',', userMarkerCoords[1], ')');
-            showAlert(`Successfully placed marker (${userMarkerCoords[0]}, ${userMarkerCoords[1]})`, 'success');
+            let lon = user_marked_lonlat.getCoordinates()[0].toFixed(6);
+            let lat = user_marked_lonlat.getCoordinates()[1].toFixed(6);
+
+            if (markerClass === ".add-marker") {
+                $(markerClass).text('Change Marker Location');
+                $('.find-nearest-station').prop('disabled', false);
+                removeRouteIfExist("userMarker");
+                userMarkerCoords = user_marked_lonlat.getCoordinates();
+                console.log('User marker coords: (', lon, ',', lat, ')');
+            } else if (markerClass === ".add-a-marker") {
+                $(markerClass).text('Change A Marker Location');
+                removeRouteIfExist("ABMarker");
+                aMarkerCoords = user_marked_lonlat.getCoordinates();
+                isAMarkerOnMap = true;
+                checkIfBothMarkersOnTheMap();
+                console.log('A marker coords: (', lon, ',', lat, ')');
+            } else if (markerClass === ".add-b-marker") {
+                $(markerClass).text('Change B Marker Location');
+                removeRouteIfExist("ABMarker");
+                bMarkerCoords = user_marked_lonlat.getCoordinates();
+                isBMarkerOnMap = true;
+                checkIfBothMarkersOnTheMap();
+                console.log('B marker coords: (', lon, ',', lat, ')');
+            }
+
+            showAlert(`Successfully placed marker (${lon}, ${lat})`, 'success');
         });
     }
 
@@ -336,7 +426,7 @@ $(document).ready(function () {
     /*Listens if remove-marker button has been clicked and removes the user marker from the map.*/
     $(".remove-marker").click(function () {
         if (userMarkerCoords !== null) {
-            removeRouteIfExist();
+            removeRouteIfExist("userMarker");
             userMarkerLayer.getSource().clear();
 
             userMarkerCoords = null;
@@ -346,6 +436,29 @@ $(document).ready(function () {
             $(".add-marker").text('Add marker');
 
             showAlert('Marker removed', 'info');
+        } else {
+            showAlert('No marker to remove', 'warning');
+        }
+    });
+
+    /*Listens if remove-a-b-marker button has been clicked and removes the A and B markers from the map.*/
+    $(".remove-a-b-marker").click(function () {
+        if (aMarkerCoords !== null || bMarkerCoords !== null) {
+            aMarkerLayer.getSource().clear();
+            bMarkerLayer.getSource().clear();
+
+            aMarkerCoords = null;
+            bMarkerCoords = null;
+
+            isAMarkerOnMap = false;
+            isBMarkerOnMap = false;
+
+            $('.find-best-route').prop('disabled', true);
+
+            $(".add-a-marker").text('Add A marker');
+            $(".add-b-marker").text('Add B marker');
+
+            showAlert('Marker A and B removed', 'info');
         } else {
             showAlert('No marker to remove', 'warning');
         }
@@ -557,7 +670,5 @@ $(document).ready(function () {
     });
 
     init();
-
-
 
 });
