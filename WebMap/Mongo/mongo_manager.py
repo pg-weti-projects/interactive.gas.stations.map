@@ -40,10 +40,8 @@ class MongoManager:
         """
         _id = row_data['_id']
 
-        lat = row_data['lat']
-        lon = row_data['lon']
-        string_lon = str(lon).split('.')
-        string_lat = str(lat).split('.')
+        string_lon = str(row_data['lon']).split('.')
+        string_lat = str(row_data['lat']).split('.')
         float_lat = float(string_lat[0] + '.' + string_lat[1][:3])
         float_lon = float(string_lon[0] + '.' + string_lon[1][:3])
 
