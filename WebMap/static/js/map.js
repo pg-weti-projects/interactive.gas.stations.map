@@ -338,7 +338,7 @@ $(document).ready(function () {
             }
         } else if (routeLayerType === "ABMarker") {
             if (roadABMarkerOnMap) {
-                routeABMarkersLayer.getSource().clear();
+                // routeABMarkersLayer.getSource().clear(); // TODO uncomment it when it will be implemented
                 roadABMarkerOnMap = false;
             }
         }
