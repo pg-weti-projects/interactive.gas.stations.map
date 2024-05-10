@@ -86,3 +86,19 @@ html, body {
 .ol-popup-closer:after {
     content: "✖";
 }
+
+.favorite-marker {
+    text-decoration: none;
+    position: absolute;
+    top: 3px;
+    right: 40px;
+}
+
+.favorite-marker-star {
+    color: gold;
+}
+
+.favorite-marker-dash {
+    color: red;
+    font-size: 20px;
+}
