@@ -345,10 +345,18 @@ $(document).ready(function () {
             const titleElement = document.createElement('div');
             isInFavorites(feature).then(isFavorite => {
 
+                const imgElement = document.createElement('img');
+                imgElement.src = 'static/img/comment.png';
+                imgElement.width = '22';
+                imgElement.height = '22';
+                imgElement.style.position = 'absolute';
+                imgElement.style.top = '1px';
+                imgElement.style.right = '65px';
+
                 const favoriteMarker = isFavorite ? '<span class="favorite-marker-dash">-</span>' :
                     '<span class="favorite-marker-star">★</span>';
                 titleElement.innerHTML = '<span class="favorite-marker" style="cursor: pointer;">' + favoriteMarker +
-                    '</span>' + '<a class="ol-popup-closer" href="#"></a>';
+                    '</span>' + imgElement.outerHTML + '<a class="ol-popup-closer" href="#"></a>';
 
                 popover = new bootstrap.Popover(element, {
                     placement: 'top',
@@ -359,9 +367,31 @@ $(document).ready(function () {
                 popover.show();
 
                 selectedMarker = feature;
+
+                const commentIcon = titleElement.querySelector('img[src="static/img/comment.png"]');
+                if (commentIcon) {
+                    commentIcon.addEventListener('click', function () {
+                        const commentModal = new bootstrap.Modal(document.getElementById('commentModal'));
+                        commentModal.show();
+                        popover.hide();
+                        fetchComments(feature);
+                    });
+                }
             }).catch(error => {
                 console.error("Error checking favorites:", error);
             });
+        });
+
+        document.getElementById('confirmAddComment').addEventListener('click', function() {
+            const checkedStars = document.querySelectorAll('input[name="commentRating"]:checked');
+            let rating = 0;
+            for (let i = 0; i < checkedStars.length; i++) {
+                rating = checkedStars[i].value;
+            }
+
+            const comment = document.getElementById('newComment').value;
+            sendCommentToServer(selectedMarker, comment, rating);
+
         });
 
         document.addEventListener('click', function (event) {
@@ -481,6 +511,72 @@ $(document).ready(function () {
         });
     }
 
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+    function sendCommentToServer(feature, comment, rating) {
+        const stationId = feature.get('id');
+        const username = getCookie('username');
+
+        if (!username) {
+            console.error('Username not found in cookies.');
+            return;
+        }
+
+         $.ajax({
+            url: '/api/add_review',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                stationId: stationId,
+                comment: comment,
+                rating: rating
+            }),
+            success: function(response) {
+                const commentList = $('.comment-list');
+                const listItem = $('<li class="list-group-item"></li>');
+
+                // Create the image element
+                const imgElement = document.createElement('img');
+                imgElement.src = 'static/img/user.png';
+                imgElement.width = '22';
+                imgElement.height = '22';
+                imgElement.style.marginRight = '10px';
+
+                // Create the username element and container
+                const usernameContainer = $('<div class="username-container"></div>').css({
+                    display: 'flex',
+                    alignItems: 'center'
+                });
+                const usernameElement = $('<span class="username"></span>').text(username);
+                usernameContainer.append(imgElement).append(usernameElement);
+
+                const ratings = $('<div class="rating"></div>');
+                const ratingValue = parseInt(rating);
+                for (let i = 1; i <= ratingValue; i++) {
+                    ratings.append('<span class="star">&#9733;</span>');
+                }
+                for (let i = ratingValue + 1; i <= 5; i++) {
+                    ratings.append('<span class="star">&#9734;</span>');
+                }
+
+                const commentContent = $('<div class="comment-content"></div>').text(comment);
+
+                listItem.append(usernameContainer);
+                listItem.append(ratings);
+                listItem.append(commentContent);
+                commentList.append(listItem);
+            },
+            error: function(xhr, status, error) {
+                console.error('Error sending comment:', error);
+            }
+        });
+    }
+
+
     function extractValue(inputString, keyword) {
         let startIndex = inputString.indexOf(keyword);
         if (startIndex !== -1) {
@@ -489,6 +585,72 @@ $(document).ready(function () {
             return endIndex !== -1 ? inputString.substring(startIndex, endIndex).trim() : "undefined";
         }
         return "undefined";
+    }
+
+    function fetchComments(feature) {
+        const stationId = feature.get('id');
+        $.ajax({
+            url: `/api/get_review/${stationId}/`,
+            type: 'GET',
+            success: function(response) {
+                displayComments(response);
+            },
+            error: function(xhr, status, error) {
+                console.error('Error during fetching comments:', error);
+            }
+        });
+    }
+
+    function displayComments(commentsJson) {
+        const commentList = $('.comment-list');
+        commentList.empty();
+
+        try {
+            const comments = JSON.parse(commentsJson);
+
+            comments.forEach(function(comment) {
+                const listItem = $('<li class="list-group-item"></li>');
+
+                const imgElement = document.createElement('img');
+                imgElement.src = 'static/img/user.png';
+                imgElement.width = '22';
+                imgElement.height = '22';
+                imgElement.style.marginRight = '10px';
+
+                // Create the username element and container
+                const usernameContainer = $('<div class="username-container"></div>').css({
+                    display: 'flex',
+                    alignItems: 'center'
+                });
+                const username = $('<span class="username"></span>').text(comment.username);
+
+                // Append the image and username to the container
+                usernameContainer.append(imgElement);
+                usernameContainer.append(username);
+
+                const rating = $('<div class="rating"></div>');
+                const ratingValue = parseInt(comment.rating);
+                for (let i = 1; i <= ratingValue; i++) {
+                    rating.append('<span class="star">&#9733;</span>'); // filled star
+                }
+                for (let i = ratingValue + 1; i <= 5; i++) {
+                    rating.append('<span class="star">&#9734;</span>'); // empty star
+                }
+
+                // Create the comment content element
+                const commentContent = $('<div class="comment-content"></div>').text(comment.comment);
+
+                // Append elements to the list item
+                listItem.append(usernameContainer);
+                listItem.append(rating);
+                listItem.append(commentContent);
+
+                // Append the list item to the comment list
+                commentList.append(listItem);
+            });
+        } catch (error) {
+            console.error('Error during fetching comments: ', error);
+        }
     }
 
 
