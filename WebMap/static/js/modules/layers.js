@@ -39,12 +39,12 @@ export function createRouteLayer(routeStrokeStyle) {
 
 
 /*Create layer to put user marker on the map*/
-export function createUserMarkerLayer(userMarkerScale, userMarkerAnchor) {
+export function createUserMarkerLayer(userMarkerScale, userMarkerAnchor, markerPath) {
     return new ol.layer.Vector({
         source: new ol.source.Vector(),
         style: new ol.style.Style({
             image: new ol.style.Icon({
-                src: 'static/img/user_marker.png',
+                src: markerPath,
                 scale: userMarkerScale,
                 anchor: userMarkerAnchor,
             }),

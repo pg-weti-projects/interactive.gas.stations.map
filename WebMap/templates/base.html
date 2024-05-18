@@ -22,31 +22,43 @@
                 <a class="navbar-brand" href="/">GIS - Interactive Map</a>
 
                 <div class="dropdown" data-bs-theme="dark">
-                    <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButtonDark"
-                            data-bs-toggle="dropdown" aria-expanded="false">User Marker</button>
-
-                    <ul class="dropdown-menu" aria-labelledby="dropdownMenuButtonDark">
+                    <button class="btn btn-secondary dropdown-toggle btn-info" type="button" id="dropdownNearestStationButton"
+                            data-bs-toggle="dropdown" aria-expanded="false">Find Nearest Station</button>
+                    <ul class="dropdown-menu" aria-labelledby="dropdownNearestStationButton">
                         <li><button type="button" class="add-marker dropdown-item">Add marker</button></li>
                         <li><button type="button" class="remove-marker dropdown-item">Remove marker</button></li>
+                        <li><button type="button" class="find-nearest-station dropdown-item" disabled>Find Station</button></li>
                     </ul>
                 </div>
 
-                <div class="other-buttons">
-                    <button type="button" class="find-nearest-station btn btn-danger" disabled>Find nearest station</button>
+                <div class="dropdown" data-bs-theme="dark">
+                    <button class="btn btn-secondary dropdown-toggle btn-info" type="button" id="dropdownRouteABButton"
+                            data-bs-toggle="dropdown" aria-expanded="false">Find A-B route</button>
+                    <ul class="dropdown-menu" aria-labelledby="dropdownRouteABButton">
+                        <li><button type="button" class="add-a-marker dropdown-item">Add A marker </button></li>
+                        <li><button type="button" class="add-b-marker dropdown-item">Add B marker</button></li>
+                        <li><button type="button" class="remove-a-b-marker dropdown-item">Remove markers</button></li>
+                        <li><button type="button" class="find-best-route dropdown-item" disabled>Find best route</button></li>
+                    </ul>
                 </div>
 
-
                 <div class="map-filter-buttons ms-auto">
-                    <button type="button" id="addNewStationMarker" class="btn btn-success add-new-station-marker">Add new Marker</button>
-                    <button type="button" id="editStationMarker" class="btn btn-warning edit-station-marker">Edit Marker</button>
-                    <button type="button" id="removeStationMarker" class="btn btn-danger remove-station-marker">Remove Marker</button>
+                    <div class="dropdown" data-bs-theme="dark">
+                        <button class="btn btn-secondary dropdown-toggle btn-info" type="button" id="dropdownCustomMarkerButton"
+                                data-bs-toggle="dropdown" aria-expanded="false">Custom Marker</button>
+                        <ul class="dropdown-menu" aria-labelledby="dropdownCustomMarkerButton">
+                            <li><button type="button" id="addNewStationMarker" class="dropdown-item">Add new Marker</button></li>
+                            <li><button type="button" id="editStationMarker" class="dropdown-item">Edit Marker</button></li>
+                            <li><button type="button" id="removeStationMarker" class="dropdown-item">Remove Marker</button></li>
+                        </ul>
+                    </div>
 
                     <div class="dropdown" data-bs-theme="dark">
                         <button class="btn btn-secondary dropdown-toggle" type="button" id="map-styles-dropdown-button"
                             data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"> Maps
                         </button>
 
-                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButtonDark">
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMapsStyles">
                             <li>
                                 <input class="form-check-input" type="radio" value="OSMLayer" name="flexRadioDefault" id="OSMLayer" checked>
                                 <label class="form-check-label" for="OSMLayer">OSM Map</label>
@@ -74,7 +86,7 @@
                                   data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"> Stations Filter
                           </button>
 
-                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButtonDark">
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownStationsFilter">
                             <li>
                                 <input class="form-check-input filters-buttons" type="checkbox" value="Amic" id="amic-filter" checked>
                                 <label class="form-check-label" for="amic-filter">Amica Stations</label>
