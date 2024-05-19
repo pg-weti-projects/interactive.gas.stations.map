@@ -67,7 +67,7 @@ $(document).ready(function () {
     let roadABMarkerOnMap = false;
 
     let safeDistanceValueRatioMeters = null;
-
+    const nearestStationsToFind = 5;
     // Routes settings
     const routeStrokeStyle = { color: "hsl(205, 100%, 50%)", width: 4, opacity: 0.6 };
     let routeMarkerLayer;
@@ -377,11 +377,11 @@ $(document).ready(function () {
     }
 
     
-    /*Find nearest station and return its coordinates*/
+    /*Finds nearest station and return its coordinates*/
     async function findNearestStationCoords(pointCoords) {
         return new Promise((resolve, reject) => {
             $.ajax({
-                url: `/api/find_nearest_station/${pointCoords[0]}/${pointCoords[1]}`,
+                url: `/api/find_nearest_stations/${pointCoords[0]}/${pointCoords[1]}`,
                 type: 'GET',
                 dataType: 'json',
                 success: function (response) {
@@ -393,6 +393,47 @@ $(document).ready(function () {
                 }
             });
         });
+    }
+
+
+    /*Finds nearest n stations and return list of its coordinates*/
+    async function findNearestNStationsData(pointCoords)
+    {
+        return new Promise((resolve, reject) => {
+            $.ajax({
+                url: `/api/find_nearest_stations/${pointCoords[0]}/${pointCoords[1]}/${nearestStationsToFind}`,
+                type: 'GET',
+                dataType: 'json',
+                success: function (response) {
+                    resolve(response.stationsData)
+                },
+                error: function (error) {
+                    showAlert('Error occurred while finding the nearest station.', 'danger');
+                    reject(error);
+                }
+            });
+        });
+    }
+
+
+    /*Finds the most optimal route to nearest station from given point based on n nearest stations*/
+    async function findNearestMostOptimalStationCoords(pointCoords)
+    {
+        let stationCoords = null;
+        let routesData = [];
+
+        let stationsData = await findNearestNStationsData(pointCoords);
+        if (stationsData.length === 0) {
+            return [];
+        }
+
+        for (let i = 0; i < stationsData.length; i++) {
+            stationCoords = [stationsData[i].lon, stationsData[i].lat];
+            let temp = await findRouteBetweenTwoPoints(pointCoords, stationCoords);
+            routesData.push({coords: stationCoords, distance: temp.features[0].properties.Total_Kilometers});
+        }
+        let minDistanceLocation = routesData.reduce((min, loc) => loc.distance < min.distance ? loc : min, routesData[0]);
+        return minDistanceLocation.coords;
     }
 
 
@@ -411,6 +452,7 @@ $(document).ready(function () {
             });
         });
     }
+
 
     /*Assign all Feature Objects to specific  gas station Layer*/
     function assignMarkersForEachGasStationLayer() {
@@ -485,8 +527,6 @@ $(document).ready(function () {
             currentDistanceMeters = currentDistanceMeters + (segmentDistance * 1000);
 
             if (currentDistanceMeters >= distanceMeters) {
-                drawPointOnABRoute(routePointsCoords[i], 'static/img/user_marker.png'); // TODO TEMP
-                roadABMarkerOnMap = true; // TODO TEMP
                 return routePointsCoords[i];
             }
         }
@@ -503,7 +543,7 @@ $(document).ready(function () {
         // from start point and if our possible to drive distance allows us to get to the station we return station coords
         if (travelDistanceMeters <= 0) {
             console.log("Could not find nearest station for each designated point on best route. Finding nearest station from start point point.")
-            let stationCoords = await findNearestStationCoords(startPointCoords);
+            let stationCoords = await findNearestMostOptimalStationCoords(startPointCoords);
             let routeFromStartPointToStation = await findRouteBetweenTwoPoints(startPointCoords, stationCoords);
             let routeFromStartPointToStationDistanceMeters = routeFromStartPointToStation.features[0].properties.Total_Kilometers * 1000;
             if (safeDistance >= routeFromStartPointToStationDistanceMeters) {
@@ -514,15 +554,11 @@ $(document).ready(function () {
         }
         let safeDistancePointCoords = await findPointAtGivenDistanceOnRoute(routeData.features[0].geometry.coordinates,
                                                                             travelDistanceMeters);
-        let nearestStationCoords = await findNearestStationCoords(safeDistancePointCoords);
+        let nearestStationCoords = await findNearestMostOptimalStationCoords(safeDistancePointCoords);
         let nearestStationRoute = await findRouteBetweenTwoPoints(safeDistancePointCoords, nearestStationCoords);
         let nearestStationDistanceMeters = nearestStationRoute.features[0].properties.Total_Kilometers * 1000;
-        console.log("TRAVEL DISTANCE: ", travelDistanceMeters / 1000);
-        console.log("DLUGOSC DROGI Z PUNKTU DO STACJI: ", nearestStationDistanceMeters);
-        console.log("SAFE DISTANCE: ", safeDistance, " RATIO: ", safeDistanceValueRatioMeters, "\n");
 
         if (safeDistance >= nearestStationDistanceMeters ) {
-            console.log(`Found station (coords: ${nearestStationCoords}) from distance ${nearestStationDistanceMeters / 1000} from designated point ${safeDistancePointCoords}`);
             return nearestStationCoords;
         } else {
             return findNearestStationPoint(routeData, startPointCoords, safeDistance + safeDistanceValueRatioMeters);
@@ -533,15 +569,6 @@ $(document).ready(function () {
       to get to the B point*/
     async function findABRouteWithAllStations()
     {
-        console.log(`CONSUMPTION: ${fuelConsumption}, AMOUNT: ${fuelAmount}, TANK AMOUNT: ${tankFuelAmount}`);
-        // TODO REMOVE AFTER TESTING
-        // MAKS ODLEGLOSC 50 Km, a z poczatku maks 1 km
-        // fuelAmount = 0.1;
-        // tankFuelAmount = 5;
-        // fuelConsumption = 10;
-        // aMarkerCoords = [18.587682, 54.351231];
-        // bMarkerCoords  = [18.733554, 53.416841];
-
         carRangeKm = (fuelAmount / fuelConsumption) * 100;
         spinner.show();
         let isRouteValid = false;
@@ -552,7 +579,6 @@ $(document).ready(function () {
 
         try {
             let routeData = await findRouteBetweenTwoPoints(aMarkerCoords, bMarkerCoords);
-            //console.log("ROUTE DATA:", routeData);
 
             if (routeData) {
                 let kilometersABRoute = routeData.features[0].properties.Total_Kilometers;
@@ -561,20 +587,14 @@ $(document).ready(function () {
                     drawRoute([aMarkerCoords, bMarkerCoords], "ABRoute");
                     isRouteValid = true;
                 } else {
-                    // TODO TEMP TWO POINTS
-                    //drawPointOnABRoute(aMarkerCoords, 'static/img/a_marker.png');
-                    //drawPointOnABRoute(bMarkerCoords, 'static/img/b_marker.png');
-
                     nextPointCoords = aMarkerCoords;
                     wholeRouteStopsPoints.push(nextPointCoords);
                     while (true) {
-                        if (carRangeKm > 10) {
+                        if (carRangeKm > 5) {
                             safeDistanceValueRatioMeters = 500;
                         } else {
                             safeDistanceValueRatioMeters = 100;
                         }
-
-                        console.log("SPALANIE: ", fuelConsumption, " ILOSC PALIWA: ", fuelAmount, " MOZNA POKONAC: ", carRangeKm);
                         let routeToBPoint = await findRouteBetweenTwoPoints(nextPointCoords, bMarkerCoords)
                         distanceToBPoint = routeToBPoint.features[0].properties.Total_Kilometers;
 
@@ -595,9 +615,7 @@ $(document).ready(function () {
                             carRangeKm = (fuelAmount/fuelConsumption) * 100;
                         }
                     }
-
                     if (isRouteValid) {
-                        console.log(wholeRouteStopsPoints);
                         for(let i = 0; i < wholeRouteStopsPoints.length; i++)
                         {
                             if (i > 0 && i < wholeRouteStopsPoints.length - 1)

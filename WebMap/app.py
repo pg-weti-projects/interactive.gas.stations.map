@@ -105,10 +105,15 @@ def calculate_km_distance_between_two_points(lon_a: float, lat_a: float, lon_b: 
     return jsonify({'distance_km': mongo_manager.calculate_distance_between_two_points(lon_a, lat_a, lon_b, lat_b)})
 
 
-@app.route("/api/find_nearest_station/<float:lon>/<float:lat>")
-def find_nearest_station(lon: float, lat: float) -> flask.Response:
+@app.route("/api/find_nearest_stations/<float:lon>/<float:lat>")
+@app.route("/api/find_nearest_stations/<float:lon>/<float:lat>/<int:amount>")
+def find_nearest_stations(lon: float, lat: float, amount: int = None) -> flask.Response:
     """
-    Route API to find the nearest gas station.
+    Find nearest station ( or stations ) point from given coordinates.
+
+    :param lon: Point longitude
+    :param lat: Point latitude
+    :param amount: Amount of stations to find near to given point (optional)
 
     :return: Coordinates of the nearest gas station.
     """
@@ -128,8 +133,13 @@ def find_nearest_station(lon: float, lat: float) -> flask.Response:
         }
 
         nearest_stations.append(station_data)
-    nearest_station = min(nearest_stations, key=lambda x: x['km'])
-    return jsonify({"stationCoords": [nearest_station['lon'], nearest_station['lat']]})
+
+    if amount:
+        nearest_stations_list = sorted(nearest_stations, key=lambda x: x['km'])[:amount]
+        return jsonify({"stationsData": nearest_stations_list})
+    else:
+        nearest_station = min(nearest_stations, key=lambda x: x['km'])
+        return jsonify({"stationCoords": [nearest_station['lon'], nearest_station['lat']]})
 
 
 @app.route('/api/add_to_favorites', methods=['POST'])
