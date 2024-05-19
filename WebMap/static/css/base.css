@@ -132,4 +132,14 @@ html, body {
     overflow-y: auto;
 }
 
+.controls-wrapper {
+    display: none;
+    background-color: #212529;
+    height: 50px;
+}
+
+#controlsWrapper label {
+    color: white;
+}
+
 

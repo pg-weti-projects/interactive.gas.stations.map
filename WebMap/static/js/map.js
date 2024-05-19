@@ -66,6 +66,9 @@ $(document).ready(function () {
     let drawControl = null;
     let popover;
     let selectedMarker = null;
+    let routeMarkerLayerRadius;
+    let radiusValue = 10;
+    let radiusLayer;
 
 
     // Initialize all basic components on the website
@@ -95,6 +98,9 @@ $(document).ready(function () {
         bMarkerLayer = createUserMarkerLayer(userMarkerScale, userMarkerAnchor, 'static/img/b_marker.png');
         map.addLayer(bMarkerLayer);
 
+        routeMarkerLayerRadius = createUserMarkerLayer(userMarkerScale, userMarkerAnchor, 'static/img/user_marker.png');
+        map.addLayer(routeMarkerLayerRadius);
+
         gasStationsMarkersLayers = createGasStationsMarkersLayers(gasStationsMarkersLayers);
         for (let layer in gasStationsMarkersLayers)
         {
@@ -114,6 +120,11 @@ $(document).ready(function () {
         });
         map.addControl(mousePositionControl);
 
+        $("#selectedArea").click(function() {
+            $("#controlsWrapper").toggle();
+        });
+
+
         $(".add-marker").click(function () {
             showAlert('Place marker on the map', 'info');
             addUserMarker(userMarkerLayer, ".add-marker");
@@ -127,6 +138,27 @@ $(document).ready(function () {
         $(".add-b-marker").click(function () {
             showAlert('Place B marker on the map', 'info');
             addUserMarker(bMarkerLayer, ".add-b-marker");
+        });
+
+        $("#addMarkerBtn").click(function () {
+            showAlert('Place marker on the map', 'info');
+            addUserMarkerRadius(userMarkerLayer, "#addMarkerBtn");
+        });
+
+        $("#applyRadiusBtn").click(function () {
+            if (userMarkerCoords !== null) {
+                applyRadius(userMarkerCoords, radiusValue);
+                filterMarkersWithinRadius(userMarkerCoords, radiusValue);
+                userMarkerLayer.getSource().clear();
+                showAlert('Radius applied successfully!', 'success');
+            } else {
+                showAlert('Please place a marker first.', 'warning');
+            }
+        });
+
+        $("#radiusSlider").on("input", function () {
+            radiusValue = $(this).val();
+            $("#radiusValue").text(radiusValue);
         });
 
         $('.find-nearest-station').click(function () {
@@ -240,6 +272,101 @@ $(document).ready(function () {
             $('.find-best-route').prop('disabled', false);
         }
     }
+
+    function createGeoJSON(coords, type = 'Point') {
+        return {
+            "type": "Feature",
+            "geometry": {
+                "type": type,
+                "coordinates": coords
+            },
+            "properties": {}
+        };
+    }
+
+    function addUserMarkerRadius(layer, buttonClass) {
+        if (drawControl) {
+            map.removeControl(drawControl);
+            drawControl.setActive(false);
+            map.removeInteraction(drawControl);
+            drawControl = null;
+        }
+
+        drawControl = new ol.interaction.Draw({
+            source: layer.getSource(),
+            type: 'Point',
+        });
+
+        map.addInteraction(drawControl);
+        drawControl.setActive(true);
+
+        drawControl.on('drawend', function (event) {
+            map.removeInteraction(drawControl);
+            drawControl.setActive(false);
+
+            const coords = ol.proj.toLonLat(event.feature.getGeometry().getCoordinates());
+            const markerFeature = new ol.Feature({
+                geometry: new ol.geom.Point(event.feature.getGeometry().getCoordinates())
+            });
+
+            layer.getSource().addFeature(markerFeature);
+
+            if (buttonClass === "#addMarkerBtn") {
+                userMarkerCoords = coords;
+            }
+
+            const geoJson = createGeoJSON(coords);
+            console.log("GeoJSON:", JSON.stringify(geoJson));
+
+            showAlert('Marker placed successfully!', 'success');
+        });
+    }
+
+
+    function applyRadius(coords, radius) {
+        if (radiusLayer) {
+            map.removeLayer(radiusLayer);
+            radiusLayer = null;
+        }
+    }
+
+    function filterMarkersWithinRadius(centerCoords, radius) {
+        for (let layerKey in gasStationsMarkersLayers) {
+            const layer = gasStationsMarkersLayers[layerKey];
+            if (layer) {
+                const source = layer.getSource();
+                const features = source.getFeatures();
+                const filteredFeatures = features.filter(feature => {
+                    const coords = ol.proj.toLonLat(feature.getGeometry().getCoordinates());
+                    const distance = haversineDistance(centerCoords, coords);
+                    return distance <= radius;
+                });
+                source.clear();
+                source.addFeatures(filteredFeatures);
+            }
+        }
+    }
+
+    function haversineDistance(coords1, coords2) {
+        const toRad = (value) => value * Math.PI / 180;
+        const lat1 = coords1[1];
+        const lon1 = coords1[0];
+        const lat2 = coords2[1];
+        const lon2 = coords2[0];
+
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        const R = 6371; // Radius of the earth in km
+        const distance = R * c; // Distance in km
+        return distance;
+    }
+
 
 
     /*Function to fetch user's favorite stations from the database*/
