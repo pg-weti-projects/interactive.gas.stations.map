@@ -245,6 +245,48 @@
             </div>
         </div>
 
+        <div class="modal fade" id="commentModal" tabindex="-1" aria-labelledby="commentModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="commentModalLabel">Comments</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="comment-list-container">
+                            <ul class="list-group comment-list">
+                                <li class="list-group-item">
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="mb-3">
+                            <label for="commentRating" class="form-label">Rating gas station</label>
+                            <div class="rating">
+                                <input type="radio" id="star1" name="commentRating" value="1">
+                                <label for="star1">&#9733;</label>
+                                <input type="radio" id="star2" name="commentRating" value="2">
+                                <label for="star2">&#9733;</label>
+                                <input type="radio" id="star3" name="commentRating" value="3">
+                                <label for="star3">&#9733;</label>
+                                <input type="radio" id="star4" name="commentRating" value="4">
+                                <label for="star4">&#9733;</label>
+                                <input type="radio" id="star5" name="commentRating" value="5">
+                                <label for="star5">&#9733;</label>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newComment" class="form-label">Comment</label>
+                            <textarea class="form-control" id="newComment" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="confirmAddComment">Add Comment</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div id="alert-container" class="alert-container"></div>
         <div id="map" class="map-div"><div id="popup"></div></div>
 

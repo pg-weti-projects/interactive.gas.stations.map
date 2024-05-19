@@ -100,5 +100,36 @@ html, body {
 
 .favorite-marker-dash {
     color: red;
+    position: relative;
+    top: 1px;
     font-size: 20px;
 }
+
+.rating input {
+    display: none;
+    left: -100vw;
+}
+
+.rating label {
+    font-size: 30px;
+    cursor: pointer;
+    color: gold;
+}
+
+.rating:not(:hover) input:indeterminate + label,
+.rating:not(:hover) input:checked ~ input + label,
+.rating input:hover ~ input + label{
+    background-position : -48px 0;
+    color: black;
+}
+
+.rating:not(:hover) input:focus-visible + label{
+    background-position : -96px 0;
+}
+
+.comment-list-container {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+
