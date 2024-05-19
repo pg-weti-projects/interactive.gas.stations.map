@@ -92,6 +92,19 @@ def remove_marker() -> flask.request:
         return jsonify({'success': False, 'error': str(e)})
 
 
+@app.route("/api/calculate_km_distance_between_two_points/<float:lon_a>/<float:lat_a>/<float:lon_b>/<float:lat_b>")
+def calculate_km_distance_between_two_points(lon_a: float, lat_a: float, lon_b: float, lat_b: float) -> flask.Response:
+    """
+    Gets distance between two points.
+    :param lon_a: Longitude of first point
+    :param lat_a: Latitude of first point
+    :param lon_b: Longitude of the second point
+    :param lat_b: Latitude of the second point
+    :return: Distance in kilometers
+    """
+    return jsonify({'distance_km': mongo_manager.calculate_distance_between_two_points(lon_a, lat_a, lon_b, lat_b)})
+
+
 @app.route("/api/find_nearest_station/<float:lon>/<float:lat>")
 def find_nearest_station(lon: float, lat: float) -> flask.Response:
     """
@@ -106,12 +119,12 @@ def find_nearest_station(lon: float, lat: float) -> flask.Response:
     for item in data:
         lat_find = float(item.get("lat"))
         lon_find = float(item.get("lon"))
-        nearest_coordination = mongo_manager.find_nearest_coordinate(lon, lat, lon_find, lat_find)
+        distance = mongo_manager.calculate_distance_between_two_points(lon, lat, lon_find, lat_find)
 
         station_data = {
             'lat': lat_find,
             'lon': lon_find,
-            'km': nearest_coordination
+            'km': distance
         }
 
         nearest_stations.append(station_data)

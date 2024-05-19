@@ -29,6 +29,11 @@ html, body {
     align-items: center;
 }
 
+.spinner-div {
+    width: 40px;
+    align-items: center;
+}
+
 .navbar-brand {
     font-size: 24px;
     color: whitesmoke;
@@ -101,4 +106,12 @@ html, body {
 .favorite-marker-dash {
     color: red;
     font-size: 20px;
+}
+
+.input-dropdown-label {
+    font-size: 13px;
+}
+
+.input-dropdown-box {
+    width: 50px;
 }

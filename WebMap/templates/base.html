@@ -16,10 +16,15 @@
     </head>
 
     <body>
-
         <nav class="navbar navbar-dark bg-dark">
             <div class="navbar-div">
                 <a class="navbar-brand" href="/">GIS - Interactive Map</a>
+
+                <div class="spinner-div">
+                    <div class="spinner-border text-light" role="status" style="display: none;">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
 
                 <div class="dropdown" data-bs-theme="dark">
                     <button class="btn btn-secondary dropdown-toggle btn-info" type="button" id="dropdownNearestStationButton"
@@ -35,6 +40,9 @@
                     <button class="btn btn-secondary dropdown-toggle btn-info" type="button" id="dropdownRouteABButton"
                             data-bs-toggle="dropdown" aria-expanded="false">Find A-B route</button>
                     <ul class="dropdown-menu" aria-labelledby="dropdownRouteABButton">
+                        <li><label class="dropdown-item input-dropdown-label"> Fuel consumption (L/100km): <input class="fuel-consumption input-dropdown-box" type="text"></label></li>
+                        <li><label class="dropdown-item input-dropdown-label"> Fuel amount (Liters): <input class="fuel-amount input-dropdown-box" type="text"></label></li>
+                        <li><label class="dropdown-item input-dropdown-label"> Tank amount (Liters): <input class="fuel-tank-amount input-dropdown-box" type="text"></label></li>
                         <li><button type="button" class="add-a-marker dropdown-item">Add A marker </button></li>
                         <li><button type="button" class="add-b-marker dropdown-item">Add B marker</button></li>
                         <li><button type="button" class="remove-a-b-marker dropdown-item">Remove markers</button></li>

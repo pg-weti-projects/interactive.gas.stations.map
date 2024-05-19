@@ -1,6 +1,6 @@
 import configparser
 import hashlib
-from typing import Dict, List, Any
+from typing import Any
 
 import pymongo
 import logging
@@ -135,7 +135,7 @@ class MongoManager:
         return self.gas_stations_collection.delete_one({'_id': _id})
 
     @staticmethod
-    def find_nearest_coordinate(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
+    def calculate_distance_between_two_points(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
         """
         Calculates the distance between two coordinates using the Haversine formula.
 

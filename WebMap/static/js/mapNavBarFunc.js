@@ -20,5 +20,5 @@ function showAlert(message, type) {
     setTimeout(function() {
         alertDiv.css('opacity', 0);
         alertDiv.alert('close');
-    }, 3000);
+    }, 5000);
 }
