@@ -132,4 +132,33 @@ html, body {
     overflow-y: auto;
 }
 
+.legend-container {
+    position: fixed;
+    bottom: 20px;
+    left: 15px;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    z-index: 9999;
+}
+
+.legend-title {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.legend-item {
+    margin-bottom: 5px;
+    font-size: 13px;
+}
+
+.legend-item img {
+    width: 20px;
+    height: 20px;
+    margin-right: 10px;
+}
+
+
 
