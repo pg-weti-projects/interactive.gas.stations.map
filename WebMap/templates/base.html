@@ -42,6 +42,10 @@
                     </ul>
                 </div>
 
+                <div class="dropdown" data-bs-theme="dark">
+                    <button class="btn btn-secondary btn-info" type="button" id="selectedArea">Selected Area</button>
+                </div>
+
                 <div class="map-filter-buttons ms-auto">
                     <div class="dropdown" data-bs-theme="dark">
                         <button class="btn btn-secondary dropdown-toggle btn-info" type="button" id="dropdownCustomMarkerButton"
@@ -316,6 +320,13 @@
             <div class="legend-item">
                 <img src="../static/img/gas_station_point_other.png" alt="Other"> Other
             </div>
+        </div>
+
+        <div id="controlsWrapper" class="controls-wrapper">
+            <button type="button" class="btn btn-primary" id="addMarkerBtn">Add Marker</button>
+            <button type="button" class="btn btn-primary" id="applyRadiusBtn">Apply Radius</button>
+            <input type="range" id="radiusSlider" min="1" max="100" value="10">
+            <label for="radiusSlider">Radius: <span id="radiusValue">10</span> km</label>
         </div>
 
         <div id="alert-container" class="alert-container"></div>
