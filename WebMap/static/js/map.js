@@ -142,14 +142,14 @@ $(document).ready(function () {
 
         $("#addMarkerBtn").click(function () {
             showAlert('Place marker on the map', 'info');
-            addUserMarkerRadius(userMarkerLayer, "#addMarkerBtn");
+            addUserMarkerRadius(routeMarkerLayerRadius, "#addMarkerBtn");
         });
 
         $("#applyRadiusBtn").click(function () {
             if (userMarkerCoords !== null) {
                 applyRadius(userMarkerCoords, radiusValue);
                 filterMarkersWithinRadius(userMarkerCoords, radiusValue);
-                userMarkerLayer.getSource().clear();
+                routeMarkerLayerRadius.getSource().clear();
                 showAlert('Radius applied successfully!', 'success');
             } else {
                 showAlert('Please place a marker first.', 'warning');
