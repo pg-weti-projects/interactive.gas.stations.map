@@ -1,6 +1,6 @@
 import configparser
 import hashlib
-from typing import Any
+from typing import Any, Mapping
 
 import pymongo
 import logging
@@ -229,3 +229,57 @@ class MongoManager:
     def get_station_information(self, lon: float, lat: float) -> dict:
         """Retrieves information about station based on given coords."""
         return self.gas_stations_collection.find_one({'lon': lon, 'lat': lat})
+
+    @property
+    def reviews_collection(self):
+        """Property method to access the 'reviews' collection in the database."""
+        return self.db['reviews']
+
+    def add_review(self, user_id: str, data: dict) -> InsertOneResult:
+        """Add a review of gas stations for a given user."""
+        station_id = data['stationId']
+        rating = data['rating']
+        comment = data['comment']
+        return self.reviews_collection.insert_one({'user_id': user_id, 'station_id': station_id, 'rating': rating,
+                                                   'comment': comment})
+
+    def get_reviews(self, station_id: str) -> list[Mapping[str, Any] | Any]:
+        """Retrieves reviews of gas stations."""
+        try:
+            reviews = list(
+                self.reviews_collection.find({'station_id': int(station_id)},
+                                             {'_id': 1, 'user_id': 1, 'station_id': 1, 'rating': 1, 'comment': 1}))
+            for review in reviews:
+                user_id = review['user_id']
+                user = self.users_collection.find_one({'_id': user_id}, {'username': 1})
+                if user:
+                    review['username'] = user['username']
+                else:
+                    review['username'] = None
+            return reviews
+        except Exception as e:
+            raise TypeError('Error downloading data: ', str(e))
+
+    def get_station_ratings(self) -> list[dict]:
+        """Retrieve and calculate average ratings for all stations."""
+        try:
+            pipeline = [
+                {
+                    '$group': {
+                        '_id': '$station_id',
+                        'average_rating': {'$avg': {'$toDouble': "$rating"}},
+                        'review_count': {'$sum': 1}
+                    }
+                },
+                {
+                    '$sort': {'average_rating': -1}
+                }
+            ]
+            result = list(self.reviews_collection.aggregate(pipeline))
+            for item in result:
+                station_id = item['_id']
+                station = self.gas_stations_collection.find_one({'_id': station_id}, {'name': 1})
+                item['station_name'] = station['name'] if station else None
+            return result
+        except Exception as e:
+            raise TypeError('Error retrieving station ratings: ', str(e))

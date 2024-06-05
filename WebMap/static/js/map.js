@@ -63,7 +63,7 @@ $(document).ready(function () {
     let tankFuelAmount = null;
     let fuelConsumption = null;
     let carRangeKm = null;
-    
+
     let routeABMarkersLayer;
     let roadABMarkerOnMap = false;
 
@@ -80,6 +80,10 @@ $(document).ready(function () {
     let popover;
     let selectedMarker = null;
     let spinner = $('.spinner-border');
+    let routeMarkerLayerRadius;
+    let radiusValue = 10;
+    let radiusLayer;
+
 
     // Initialize all basic components on the website
     function init() {
@@ -108,6 +112,9 @@ $(document).ready(function () {
         bMarkerLayer = createUserMarkerLayer(userMarkerScale, userMarkerAnchor, 'static/img/b_marker.png');
         map.addLayer(bMarkerLayer);
 
+        routeMarkerLayerRadius = createUserMarkerLayer(userMarkerScale, userMarkerAnchor, 'static/img/user_marker.png');
+        map.addLayer(routeMarkerLayerRadius);
+
         gasStationsMarkersLayers = createGasStationsMarkersLayers(gasStationsMarkersLayers);
         for (let layer in gasStationsMarkersLayers)
         {
@@ -127,6 +134,11 @@ $(document).ready(function () {
         });
         map.addControl(mousePositionControl);
 
+        $("#selectedArea").click(function() {
+            $("#controlsWrapper").toggle();
+        });
+
+
         $(".add-marker").click(function () {
             showAlert('Place marker on the map', 'info');
             addUserMarker(userMarkerLayer, ".add-marker");
@@ -140,6 +152,27 @@ $(document).ready(function () {
         $(".add-b-marker").click(function () {
             showAlert('Place B marker on the map', 'info');
             addUserMarker(bMarkerLayer, ".add-b-marker");
+        });
+
+        $("#addMarkerBtn").click(function () {
+            showAlert('Place marker on the map', 'info');
+            addUserMarkerRadius(routeMarkerLayerRadius, "#addMarkerBtn");
+        });
+
+        $("#applyRadiusBtn").click(function () {
+            if (userMarkerCoords !== null) {
+                applyRadius(userMarkerCoords, radiusValue);
+                filterMarkersWithinRadius(userMarkerCoords, radiusValue);
+                routeMarkerLayerRadius.getSource().clear();
+                showAlert('Radius applied successfully!', 'success');
+            } else {
+                showAlert('Please place a marker first.', 'warning');
+            }
+        });
+
+        $("#radiusSlider").on("input", function () {
+            radiusValue = $(this).val();
+            $("#radiusValue").text(radiusValue);
         });
 
         $('.find-nearest-station').click(function () {
@@ -160,7 +193,7 @@ $(document).ready(function () {
 
                 // if road is on the map, we need to remove all params related to this route from map and settings
                 clearABRouteParams();
-                
+
                 // If user click this button we have to block all buttons from  A-B route menu
                 switchRouteOptions(true);
 
@@ -335,7 +368,7 @@ $(document).ready(function () {
 
     }
 
-    
+
     /*Reset all A-B route parameters (fuel, fuel tank amount, etc.)*/
     function clearABRouteParams()
     {
@@ -376,7 +409,7 @@ $(document).ready(function () {
         }
     }
 
-    
+
     /*Finds nearest station by using api call and draw route from user point to this station*/
     async function findStationAndDrawRoute(userMarkerCoords)
     {
@@ -392,7 +425,7 @@ $(document).ready(function () {
         }
     }
 
-    
+
     /*Finds nearest station and return its coordinates*/
     async function findNearestStationCoords(pointCoords) {
         return new Promise((resolve, reject) => {
@@ -452,6 +485,101 @@ $(document).ready(function () {
         return minDistanceLocation.coords;
     }
 
+    function createGeoJSON(coords, type = 'Point') {
+        return {
+            "type": "Feature",
+            "geometry": {
+                "type": type,
+                "coordinates": coords
+            },
+            "properties": {}
+        };
+    }
+
+    function addUserMarkerRadius(layer, buttonClass) {
+        if (drawControl) {
+            map.removeControl(drawControl);
+            drawControl.setActive(false);
+            map.removeInteraction(drawControl);
+            drawControl = null;
+        }
+
+        drawControl = new ol.interaction.Draw({
+            source: layer.getSource(),
+            type: 'Point',
+        });
+
+        map.addInteraction(drawControl);
+        drawControl.setActive(true);
+
+        drawControl.on('drawend', function (event) {
+            map.removeInteraction(drawControl);
+            drawControl.setActive(false);
+
+            const coords = ol.proj.toLonLat(event.feature.getGeometry().getCoordinates());
+            const markerFeature = new ol.Feature({
+                geometry: new ol.geom.Point(event.feature.getGeometry().getCoordinates())
+            });
+
+            layer.getSource().addFeature(markerFeature);
+
+            if (buttonClass === "#addMarkerBtn") {
+                userMarkerCoords = coords;
+            }
+
+            const geoJson = createGeoJSON(coords);
+            console.log("GeoJSON:", JSON.stringify(geoJson));
+
+            showAlert('Marker placed successfully!', 'success');
+        });
+    }
+
+
+    function applyRadius(coords, radius) {
+        if (radiusLayer) {
+            map.removeLayer(radiusLayer);
+            radiusLayer = null;
+        }
+    }
+
+    function filterMarkersWithinRadius(centerCoords, radius) {
+        for (let layerKey in gasStationsMarkersLayers) {
+            const layer = gasStationsMarkersLayers[layerKey];
+            if (layer) {
+                const source = layer.getSource();
+                const features = source.getFeatures();
+                const filteredFeatures = features.filter(feature => {
+                    const coords = ol.proj.toLonLat(feature.getGeometry().getCoordinates());
+                    const distance = haversineDistance(centerCoords, coords);
+                    return distance <= radius;
+                });
+                source.clear();
+                source.addFeatures(filteredFeatures);
+            }
+        }
+    }
+
+    function haversineDistance(coords1, coords2) {
+        const toRad = (value) => value * Math.PI / 180;
+        const lat1 = coords1[1];
+        const lon1 = coords1[0];
+        const lat2 = coords2[1];
+        const lon2 = coords2[0];
+
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        const R = 6371; // Radius of the earth in km
+        const distance = R * c; // Distance in km
+        return distance;
+    }
+
+
 
     /*Function to fetch user's favorite stations from the database*/
     function fetchFavoriteStationsFromDatabase() {
@@ -488,7 +616,7 @@ $(document).ready(function () {
         });
     }
 
-    
+
     /*Draws point on map in selected place and with selected icon*/
     function drawPointOnABRoute(coords, pathToImg) {
         const feature = new ol.Feature({
@@ -531,8 +659,8 @@ $(document).ready(function () {
             });
         });
     }
-    
-    
+
+
     /*Find nearest given distance point at given route*/
     async function findPointAtGivenDistanceOnRoute(routePointsCoords, distanceMeters)
     {
@@ -874,10 +1002,19 @@ $(document).ready(function () {
 
         } else if (featureType === "marker") {
             isInFavorites(feature).then(isFavorite => {
+
+                const imgElement = document.createElement('img');
+                imgElement.src = 'static/img/comment.png';
+                imgElement.width = '22';
+                imgElement.height = '22';
+                imgElement.style.position = 'absolute';
+                imgElement.style.top = '1px';
+                imgElement.style.right = '65px';
+
                 const favoriteMarker = isFavorite ? '<span class="favorite-marker-dash">-</span>' :
                     '<span class="favorite-marker-star">★</span>';
                 titleElement.innerHTML = '<span class="favorite-marker" style="cursor: pointer;">' + favoriteMarker +
-                    '</span>' + '<a class="ol-popup-closer" href="#"></a>';
+                    '</span>' + imgElement.outerHTML + '<a class="ol-popup-closer" href="#"></a>';
 
                 popover = new bootstrap.Popover(element, {
                     placement: 'top',
@@ -888,6 +1025,16 @@ $(document).ready(function () {
                 popover.show();
 
                 selectedMarker = feature;
+
+                const commentIcon = titleElement.querySelector('img[src="static/img/comment.png"]');
+                if (commentIcon) {
+                    commentIcon.addEventListener('click', function () {
+                        const commentModal = new bootstrap.Modal(document.getElementById('commentModal'));
+                        commentModal.show();
+                        popover.hide();
+                        fetchComments(feature);
+                    });
+                }
             }).catch(error => {
                 console.error("Error checking favorites:", error);
             });
@@ -915,6 +1062,18 @@ $(document).ready(function () {
             } else if (feature.get('name')) {
                 handleMapClick(feature, evt.coordinate, "marker");
             }
+        });
+
+        document.getElementById('confirmAddComment').addEventListener('click', function() {
+            const checkedStars = document.querySelectorAll('input[name="commentRating"]:checked');
+            let rating = 0;
+            for (let i = 0; i < checkedStars.length; i++) {
+                rating = checkedStars[i].value;
+            }
+
+            const comment = document.getElementById('newComment').value;
+            sendCommentToServer(selectedMarker, comment, rating);
+
         });
 
         document.addEventListener('click', function (event) {
@@ -1033,6 +1192,72 @@ $(document).ready(function () {
         });
     }
 
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+    function sendCommentToServer(feature, comment, rating) {
+        const stationId = feature.get('id');
+        const username = getCookie('username');
+
+        if (!username) {
+            console.error('Username not found in cookies.');
+            return;
+        }
+
+         $.ajax({
+            url: '/api/add_review',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                stationId: stationId,
+                comment: comment,
+                rating: rating
+            }),
+            success: function(response) {
+                const commentList = $('.comment-list');
+                const listItem = $('<li class="list-group-item"></li>');
+
+                // Create the image element
+                const imgElement = document.createElement('img');
+                imgElement.src = 'static/img/user.png';
+                imgElement.width = '22';
+                imgElement.height = '22';
+                imgElement.style.marginRight = '10px';
+
+                // Create the username element and container
+                const usernameContainer = $('<div class="username-container"></div>').css({
+                    display: 'flex',
+                    alignItems: 'center'
+                });
+                const usernameElement = $('<span class="username"></span>').text(username);
+                usernameContainer.append(imgElement).append(usernameElement);
+
+                const ratings = $('<div class="rating"></div>');
+                const ratingValue = parseInt(rating);
+                for (let i = 1; i <= ratingValue; i++) {
+                    ratings.append('<span class="star">&#9733;</span>');
+                }
+                for (let i = ratingValue + 1; i <= 5; i++) {
+                    ratings.append('<span class="star">&#9734;</span>');
+                }
+
+                const commentContent = $('<div class="comment-content"></div>').text(comment);
+
+                listItem.append(usernameContainer);
+                listItem.append(ratings);
+                listItem.append(commentContent);
+                commentList.append(listItem);
+            },
+            error: function(xhr, status, error) {
+                console.error('Error sending comment:', error);
+            }
+        });
+    }
+
+
     function extractValue(inputString, keyword) {
         let startIndex = inputString.indexOf(keyword);
         if (startIndex !== -1) {
@@ -1043,6 +1268,146 @@ $(document).ready(function () {
         return "undefined";
     }
 
+    function fetchComments(feature) {
+        const stationId = feature.get('id');
+        $.ajax({
+            url: `/api/get_review/${stationId}/`,
+            type: 'GET',
+            success: function(response) {
+                displayComments(response);
+            },
+            error: function(xhr, status, error) {
+                console.error('Error during fetching comments:', error);
+            }
+        });
+    }
+
+    function displayComments(commentsJson) {
+        const commentList = $('.comment-list');
+        commentList.empty();
+
+        try {
+            const comments = JSON.parse(commentsJson);
+
+            comments.forEach(function(comment) {
+                const listItem = $('<li class="list-group-item"></li>');
+
+                const imgElement = document.createElement('img');
+                imgElement.src = 'static/img/user.png';
+                imgElement.width = '22';
+                imgElement.height = '22';
+                imgElement.style.marginRight = '10px';
+
+                // Create the username element and container
+                const usernameContainer = $('<div class="username-container"></div>').css({
+                    display: 'flex',
+                    alignItems: 'center'
+                });
+                const username = $('<span class="username"></span>').text(comment.username);
+
+                // Append the image and username to the container
+                usernameContainer.append(imgElement);
+                usernameContainer.append(username);
+
+                const rating = $('<div class="rating"></div>');
+                const ratingValue = parseInt(comment.rating);
+                for (let i = 1; i <= ratingValue; i++) {
+                    rating.append('<span class="star">&#9733;</span>'); // filled star
+                }
+                for (let i = ratingValue + 1; i <= 5; i++) {
+                    rating.append('<span class="star">&#9734;</span>'); // empty star
+                }
+                const commentContent = $('<div class="comment-content"></div>').text(comment.comment);
+
+                listItem.append(usernameContainer);
+                listItem.append(rating);
+                listItem.append(commentContent);
+                commentList.append(listItem);
+            });
+        } catch (error) {
+            console.error('Error during fetching comments: ', error);
+        }
+    }
+
+    function displayRankings(rankingsJson) {
+        const rankingsContainer = $('.ranking-list');
+        rankingsContainer.empty();
+        try {
+            const rankings = JSON.parse(rankingsJson);
+            rankings.forEach(function(ranking) {
+                const listItem = $('<li class="list-group-item"></li>');
+                const stationId = $('<span class="station-name"></span>').text(`${ranking.station_name}`);
+
+                const averageRatingContainer = $('<div class="average-rating-container" style="display: flex; align-items: center;"></div>');
+                const averageRating = $('<div class="average-rating" style="display: flex;"></div>');
+                const ratingValue = parseFloat(ranking.average_rating);
+
+                const fullStars = Math.floor(ratingValue);
+                const hasHalfStar = !Number.isInteger(ratingValue);
+                const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+
+                for (let i = 0; i < fullStars; i++) {
+                    averageRating.append('<i class="fas fa-star"></i>'); // filled star
+                }
+                if (hasHalfStar) {
+                    averageRating.append('<i class="fas fa-star-half-alt"></i>'); // half star
+                }
+                for (let i = 0; i < emptyStars; i++) {
+                    averageRating.append('<i class="far fa-star"></i>'); // empty star
+                }
+                const averageRatingNumber = $('<span class="average-rating-number" style="margin-left: 5px;"></span>').text(`(${ratingValue.toFixed(1)})`);
+                averageRatingContainer.append(averageRating);
+                averageRatingContainer.append(averageRatingNumber);
+
+                const reviewCount = $('<span class="review-count" style="margin-left: 10px;"></span>').text(`Reviews: ${ranking.review_count}`);
+                listItem.append(stationId);
+                listItem.append(averageRatingContainer);
+                listItem.append(reviewCount);
+
+                listItem.on('click', function() {
+                    console.log(ranking._id);
+                    const stationId = ranking._id;
+                    moveToStationAndOpenPopup(stationId);
+                    $('#rankingModal').modal('hide');
+                });
+                rankingsContainer.append(listItem);
+            });
+        } catch (error) {
+            console.error('Error during fetching rankings: ', error);
+        }
+    }
+
+    function moveToStationAndOpenPopup(stationId) {
+        const stationFeature = findStationFeatureById(stationId);
+        if (stationFeature) {
+            const coordinates = stationFeature.getGeometry().getCoordinates();
+            map.getView().animate({ center: coordinates, zoom: 12, duration: 1000 });
+            map.dispatchEvent({
+                type: 'click',
+                coordinate: coordinates,
+                pixel: map.getPixelFromCoordinate(coordinates)
+            });
+        } else {
+            console.error(`Station with ID ${stationId} not found`);
+        }
+    }
+
+    function findStationFeatureById(id) {
+        let foundFeature = null;
+        for (let layerKey in gasStationsMarkersLayers) {
+            const layer = gasStationsMarkersLayers[layerKey];
+            if (layer instanceof ol.layer.Vector) {
+                const source = layer.getSource();
+                console.log(source);
+                source.forEachFeature(feature => {
+                    if (feature.get('id') === id) {
+                        foundFeature = feature;
+                    }
+                });
+            }
+        }
+        return foundFeature;
+    }
 
     /*Listens if remove-marker button has been clicked and removes the user marker from the map.*/
     $(".remove-marker").click(function () {
@@ -1289,6 +1654,20 @@ $(document).ready(function () {
             showAlert('No marker selected to remove', 'warning');
         }
         $('#removeMarkerModal').modal('hide');
+    });
+
+    $('#ranking').on('click', function() {
+        $.ajax({
+            url: '/api/rankings',
+            type: 'GET',
+            success: function(response) {
+                    displayRankings(JSON.stringify(response));
+                    $('#rankingModal').modal('show'); // Show the modal after data is loaded
+            },
+            error: function(error) {
+                console.error('Error fetching rankings:', error);
+            }
+        });
     });
 
     /*Function handles the click event on the logout button.*/

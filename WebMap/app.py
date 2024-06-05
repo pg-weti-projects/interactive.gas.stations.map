@@ -1,5 +1,7 @@
+import json
 import flask
-from flask import Flask, render_template, jsonify, redirect, url_for, request
+from bson import json_util
+from flask import Flask, render_template, jsonify, redirect, url_for, request, Response
 from functools import wraps
 
 from werkzeug import Response
@@ -153,6 +155,37 @@ def get_station_information(lon: float, lat: float) -> flask.Response:
     return jsonify({"stationInformation": mongo_manager.get_station_information(lon, lat)})
 
 
+@app.route('/api/add_review', methods=['POST'])
+def add_review() -> flask.request:
+    """
+    Endpoint to add a new review to the database.
+
+    :return: JSON response with the added review data or an error message.
+    """
+    try:
+        data = request.get_json()
+        user_id = flask.session['user_id']
+        mongo_manager.add_review(user_id, data)
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/get_review/<stationId>/', methods=['GET'])
+def get_review(stationId) -> str | Response:
+    """
+    Retrieves reviews for a specific gas station.
+
+    :param stationId: Identifier of the station for which reviews are to be retrieved.
+    :return: JSON response with reviews for the specified station or a message indicating no reviews.
+    """
+    reviews = mongo_manager.get_reviews(stationId)
+    if reviews is not None:
+        return json.dumps(reviews, default=json_util.default)
+    else:
+        return jsonify({'message': 'No favorites'})
+
+
 @app.route('/api/add_to_favorites', methods=['POST'])
 def add_to_favorites() -> flask.Response:
     """
@@ -218,6 +251,15 @@ def remove_from_favorites() -> tuple[Response, int]:
         return jsonify({"success": True, "message": "Gas station removed from favorites."}), 200
 
 
+@app.route('/api/rankings', methods=['GET'])
+def get_rankings():
+    try:
+        rankings = mongo_manager.get_station_ratings()
+        return jsonify(rankings)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route("/database")
 def create_database() -> flask.Response:
     """
@@ -248,7 +290,10 @@ def login_user() -> str | Response:
             return render_template('login.html', error='Username or password is incorrect')
         else:
             flask.session['user_id'] = str(user_id)
-            return redirect(url_for('interactive_map'))
+            response = redirect(url_for('interactive_map'))
+            response.set_cookie('user_id', str(user_id))
+            response.set_cookie('username', str(username))
+            return response
 
     return render_template('login.html')
 
