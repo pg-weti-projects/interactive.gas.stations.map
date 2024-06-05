@@ -1365,7 +1365,6 @@ $(document).ready(function () {
                 listItem.append(reviewCount);
 
                 listItem.on('click', function() {
-                    console.log(ranking._id);
                     const stationId = ranking._id;
                     moveToStationAndOpenPopup(stationId);
                     $('#rankingModal').modal('hide');
@@ -1398,7 +1397,6 @@ $(document).ready(function () {
             const layer = gasStationsMarkersLayers[layerKey];
             if (layer instanceof ol.layer.Vector) {
                 const source = layer.getSource();
-                console.log(source);
                 source.forEachFeature(feature => {
                     if (feature.get('id') === id) {
                         foundFeature = feature;
