@@ -225,3 +225,7 @@ class MongoManager:
             })
 
         return {"favoriteStations": result}
+
+    def get_station_information(self, lon: float, lat: float) -> dict:
+        """Retrieves information about station based on given coords."""
+        return self.gas_stations_collection.find_one({'lon': lon, 'lat': lat})

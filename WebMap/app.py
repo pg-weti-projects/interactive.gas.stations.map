@@ -142,6 +142,17 @@ def find_nearest_stations(lon: float, lat: float, amount: int = None) -> flask.R
         return jsonify({"stationCoords": [nearest_station['lon'], nearest_station['lat']]})
 
 
+@app.route("/api/get_station_information/<float:lon>/<float:lat>")
+def get_station_information(lon: float, lat: float) -> flask.Response:
+    """
+    Gets information from MongoDB about station based on given coordinates.
+    :param lon: Station longitude coordinate.
+    :param lat: Station latitude coordinate.
+    :return: Found station data
+    """
+    return jsonify({"stationInformation": mongo_manager.get_station_information(lon, lat)})
+
+
 @app.route('/api/add_to_favorites', methods=['POST'])
 def add_to_favorites() -> flask.Response:
     """

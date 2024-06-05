@@ -59,6 +59,7 @@ $(document).ready(function () {
     let isBMarkerOnMap = false;
 
     let fuelAmount = null;
+    let baseFuelAmount = null;
     let tankFuelAmount = null;
     let fuelConsumption = null;
     let carRangeKm = null;
@@ -182,7 +183,7 @@ $(document).ready(function () {
 
                         // If the favorite filter is selected, all other filters are disabled and unchecked
                         for (let key in gasStationsMarkersLayers) {
-                            if (key !== "Favorites") {
+                            if (key !== "Favorites" && key !== "None") {
                                 gasStationsMarkersLayers[key].setVisible(false);
                             }
                         }
@@ -207,6 +208,18 @@ $(document).ready(function () {
                     $('.filters-buttons').not(this).prop('checked', true);
                     for (let key in gasStationsMarkersLayers) {
                         gasStationsMarkersLayers[key].setVisible(true);
+                    }
+                }
+            } else if (checkboxValue === "None") {
+                if ($(this).is(':checked')) {
+                    $('.filters-buttons').not(this).prop('checked', true);
+                    for (let key in gasStationsMarkersLayers) {
+                        gasStationsMarkersLayers[key].setVisible(true);
+                    }
+                } else {
+                    $('.filters-buttons').not(this).prop('checked', false);
+                    for (let key in gasStationsMarkersLayers) {
+                        gasStationsMarkersLayers[key].setVisible(false);
                     }
                 }
             } else {
@@ -237,8 +250,10 @@ $(document).ready(function () {
 
             if (input !== "") {
                 fuelAmount = parseFloat($(this).val());
+                baseFuelAmount = fuelAmount;
             } else {
                 fuelAmount = null;
+                baseFuelAmount = null;
             }
             checkIfAllParamsFilledForABRoute();
         });
@@ -326,6 +341,7 @@ $(document).ready(function () {
     {
         clearRouteLayer("ABMarker");
         fuelAmount = parseFloat($('.fuel-amount').val());
+        baseFuelAmount = fuelAmount;
         tankFuelAmount = parseFloat($('.fuel-tank-amount').val());
         fuelConsumption = parseFloat($('.fuel-consumption').val());
         safeDistanceValueRatioMeters = null;
@@ -662,17 +678,15 @@ $(document).ready(function () {
             stops: stopsPointsCoords,
             authentication
         })
-        .then((response) => {
-
+        .then(async (response) => {
             const features = geojson.readFeatures(response.routes.geoJson);
+            let routeInformation = await prepareRouteInformation(response, routeType, stopsPointsCoords)
 
             const routeFeatures = features.map((feature) => {
-                const travelTime = parseFloat(response.directions[0].summary.totalDriveTime).toFixed(0);
-                const totalKilometers = parseFloat(response.routes.features[0].attributes.Total_Kilometers).toFixed(2);
-
                 return new ol.Feature({
                     geometry: feature.getGeometry(),
-                    name: `<b>Distance: ${totalKilometers} km</b><br><b>Travel time: ${travelTime} min</b>`,
+                    name: routeInformation,
+                    type: 'route'
                 });
             });
 
@@ -686,12 +700,10 @@ $(document).ready(function () {
 
                 showAlert('Found nearest station! Drawing route...', 'success');
             } else if (routeType === "ABRoute") {
-                if (!routeABMarkersLayer.getSource())
-                {
+                if (!routeABMarkersLayer.getSource()) {
                     routeABMarkersLayer.setSource(routeSource);
                     roadABMarkerOnMap = true;
-                } else
-                {
+                } else {
                     routeABMarkersLayer.getSource().addFeatures(routeFeatures);
                 }
             } else {
@@ -704,8 +716,75 @@ $(document).ready(function () {
           });
     }
 
+
+    /*Prepares information about route that is displayed in the popup window*/
+    async function prepareRouteInformation(routeData, routeType, stopsPointsCoords)
+    {
+        const travelTime = parseFloat(routeData.directions[0].summary.totalDriveTime).toFixed(0);
+        const totalKilometers = parseFloat(routeData.routes.features[0].attributes.Total_Kilometers).toFixed(2);
+        if (routeType === "nearestStation") {
+            return `<b>Total Distance (km): ${totalKilometers}</b><br><b>Total travel time (min): ${travelTime}</b>`
+        } else if (routeType === "ABRoute")
+        {
+            // Get data from the whole route and from A point to next point on the route.
+            const beginPossibleDistance = parseFloat((baseFuelAmount / fuelConsumption) * 100);
+            let routeInformation = `<b>Total distance (km): ${totalKilometers}</b><br><b>Total travel time (min): ${travelTime}</b><br><b>Range without refuel (km): ${beginPossibleDistance}</b><br><b>Points to visit on A-B route:</b><br><br>`;
+            let routeToNearestStation = await findRouteBetweenTwoPoints(stopsPointsCoords[0], stopsPointsCoords[1]);
+            const travelTimeToNearestStation = parseFloat(routeToNearestStation.features[0].properties.Total_TravelTime).toFixed(0);
+            const totalKilometersToNearestStation = parseFloat(routeToNearestStation.features[0].properties.Total_Kilometers).toFixed(2);
+            const beginBurntFuel = parseFloat((travelTimeToNearestStation * fuelConsumption) / 100);
+            try {
+                const stationsData = await Promise.all(
+                    stopsPointsCoords.slice(1, -1).map(([lon, lat]) => getStationData(lon, lat))
+                );
+                if (stationsData.length > 0) {
+                    routeInformation += `<b>Point: Point A</b><br><b>Coords: ${stopsPointsCoords[0][0].toFixed(2)}, ${stopsPointsCoords[0][1].toFixed(2)}</b><br><b>Distance to next station (km): ${totalKilometersToNearestStation}</b><br><b>Time to next station (min): ${travelTimeToNearestStation}</b><br><b>You will burn fuel (l): ${beginBurntFuel}</b><hr><br>`;
+                } else {
+                    routeInformation += `<b>Point: Point A</b><br><b>Coords: ${stopsPointsCoords[0][0].toFixed(2)}, ${stopsPointsCoords[0][1].toFixed(2)}</b><br><b>Distance to point B (km): ${totalKilometersToNearestStation}</b><br><b>Time to point B (min): ${travelTimeToNearestStation}</b><br><b>You will burn fuel (l): ${beginBurntFuel}</b><hr><br>`;
+                }
+
+                if (stationsData.length > 0) {
+                    for (let i = 0; i < stationsData.length; i++) {
+                        let routeBetweenTwoPoints = await findRouteBetweenTwoPoints(stopsPointsCoords[i+1], stopsPointsCoords[i+2]);
+                        const travelTime = parseFloat(routeBetweenTwoPoints.features[0].properties.Total_TravelTime).toFixed(0);
+                        const totalKilometers = parseFloat(routeBetweenTwoPoints.features[0].properties.Total_Kilometers).toFixed(2);
+                        const burntFuel = parseFloat((totalKilometers * fuelConsumption) / 100);
+                        if (i + 1 === stationsData.length) {
+                            routeInformation += `<b>Station name: ${stationsData[i].name}</b><br><b>Coords: ${(stationsData[i].lon).toFixed(2)}, ${(stationsData[i].lat).toFixed(2)}</b><br><b>Distance to point B (km): ${totalKilometers}</b><br><b>Time to point B (min): ${travelTime}</b><br><b>Distance after refuel (km): ${(tankFuelAmount / fuelConsumption) * 100}</b><br><b>You will burn fuel (l): ${burntFuel}</b><hr><br>`;
+                        } else {
+                            routeInformation += `<b>Station name: ${stationsData[i].name}</b><br><b>Coords: ${(stationsData[i].lon).toFixed(2)}, ${(stationsData[i].lat).toFixed(2)}</b><br><b>Distance to next station (km): ${totalKilometers}</b><br><b>Time to next station (min): ${travelTime}</b><br><b>You will burn fuel (l): ${burntFuel}</b><hr>`;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error("An error occurred during attempt to fetch station data:", error);
+            }
+            return routeInformation
+        }
+    }
+
+
+    /*Gets stations data based on given coordinates*/
+    async function getStationData(lon, lat)
+    {
+        return new Promise((resolve, reject) => {
+            $.ajax({
+                url: `/api/get_station_information/${lon}/${lat}`,
+                type: 'GET',
+                success: function(response) {
+                    resolve(response.stationInformation);
+                },
+                error: function(error) {
+                    reject(error);
+                }
+            });
+        });
+    }
+
+
     /*Function activate drawing mode to add marker in place selected by user.*/
-    function addUserMarker(markerLayer, markerClass) {
+    function addUserMarker(markerLayer, markerClass)
+    {
         if (drawControl) {
             map.removeControl(drawControl);
             drawControl.setActive(false);
@@ -752,14 +831,14 @@ $(document).ready(function () {
                 checkIfAllParamsFilledForABRoute();
                 console.log('B marker coords: (', lon, ',', lat, ')');
             }
-
             showAlert(`Successfully placed marker (${lon}, ${lat})`, 'success');
         });
     }
 
 
     // Display popup on click
-    function disposePopover() {
+    function disposePopover()
+    {
         if (popover) {
             popover.dispose();
             popover = undefined;
@@ -767,10 +846,12 @@ $(document).ready(function () {
     }
 
 
-    /*Add handler for clicking on Feature objects. When user click on this object (e.g. Marker, Route), a popup will
-    * appear with information about it. When user hover over Feature object, cursor will be changed. */
-    function addPopupWindowLogic() {
+    /*Handle map objects click by displaying popup window. The type of the displayed popup depends on the type
+    of the clicked object. */
+    function handleMapClick(feature, coordinate, featureType)
+    {
         const element = document.getElementById('popup');
+        const titleElement = document.createElement('div');
 
         const popup = new ol.Overlay({
           element: element,
@@ -778,23 +859,21 @@ $(document).ready(function () {
           stopEvent: false,
         });
         map.addOverlay(popup);
+        popup.setPosition(coordinate);
 
-
-        // Handle click on Feature object
-        map.on('click', function (evt) {
-            const feature = map.forEachFeatureAtPixel(evt.pixel, function (feature) {
-                return feature;
+        if (featureType === "route")
+        {
+            titleElement.innerHTML = '<a class="ol-popup-closer" href="#"></a>';
+            popover = new bootstrap.Popover(element, {
+                placement: 'top',
+                html: true,
+                title: titleElement,
+                content: feature.get('name'),
             });
+            popover.show();
 
-            disposePopover();
-            if (!feature || !feature.get('name')) {
-                return;
-            }
-            popup.setPosition(evt.coordinate);
-
-            const titleElement = document.createElement('div');
+        } else if (featureType === "marker") {
             isInFavorites(feature).then(isFavorite => {
-
                 const favoriteMarker = isFavorite ? '<span class="favorite-marker-dash">-</span>' :
                     '<span class="favorite-marker-star">★</span>';
                 titleElement.innerHTML = '<span class="favorite-marker" style="cursor: pointer;">' + favoriteMarker +
@@ -812,6 +891,30 @@ $(document).ready(function () {
             }).catch(error => {
                 console.error("Error checking favorites:", error);
             });
+        }
+
+    }
+
+
+    /*Add handler for clicking on Feature objects. When user click on this object (e.g. Marker, Route), a popup will
+    * appear with information about it. When user hover over Feature object, cursor will be changed. */
+    function addPopupWindowLogic() {
+        map.on('click', function (evt) {
+            const feature = map.forEachFeatureAtPixel(evt.pixel, function (feature) {
+                return feature;
+            });
+
+            disposePopover();
+            if (!feature) {
+                return;
+            }
+
+            const featureType = feature.get('type');
+            if (featureType === 'route') {
+                handleMapClick(feature, evt.coordinate, "route");
+            } else if (feature.get('name')) {
+                handleMapClick(feature, evt.coordinate, "marker");
+            }
         });
 
         document.addEventListener('click', function (event) {
@@ -832,7 +935,6 @@ $(document).ready(function () {
                 }
             }
         });
-
 
         // Change pointer when user hover over Feature object
         map.on('pointermove', function (event) {
