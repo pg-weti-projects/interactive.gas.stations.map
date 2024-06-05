@@ -217,6 +217,15 @@ def remove_from_favorites() -> tuple[Response, int]:
         return jsonify({"success": True, "message": "Gas station removed from favorites."}), 200
 
 
+@app.route('/api/rankings', methods=['GET'])
+def get_rankings():
+    try:
+        rankings = mongo_manager.get_station_ratings()
+        return jsonify(rankings)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route("/database")
 def create_database() -> flask.Response:
     """

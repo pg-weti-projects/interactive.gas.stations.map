@@ -255,3 +255,27 @@ class MongoManager:
             return reviews
         except Exception as e:
             raise TypeError('Error downloading data: ', str(e))
+
+    def get_station_ratings(self) -> list[dict]:
+        """Retrieve and calculate average ratings for all stations."""
+        try:
+            pipeline = [
+                {
+                    '$group': {
+                        '_id': '$station_id',
+                        'average_rating': {'$avg': {'$toDouble': "$rating"}},
+                        'review_count': {'$sum': 1}
+                    }
+                },
+                {
+                    '$sort': {'average_rating': -1}
+                }
+            ]
+            result = list(self.reviews_collection.aggregate(pipeline))
+            for item in result:
+                station_id = item['_id']
+                station = self.gas_stations_collection.find_one({'_id': station_id}, {'name': 1})
+                item['station_name'] = station['name'] if station else None
+            return result
+        except Exception as e:
+            raise TypeError('Error retrieving station ratings: ', str(e))
