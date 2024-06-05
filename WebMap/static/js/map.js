@@ -854,16 +854,11 @@ $(document).ready(function () {
                 for (let i = ratingValue + 1; i <= 5; i++) {
                     rating.append('<span class="star">&#9734;</span>'); // empty star
                 }
-
-                // Create the comment content element
                 const commentContent = $('<div class="comment-content"></div>').text(comment.comment);
 
-                // Append elements to the list item
                 listItem.append(usernameContainer);
                 listItem.append(rating);
                 listItem.append(commentContent);
-
-                // Append the list item to the comment list
                 commentList.append(listItem);
             });
         } catch (error) {
@@ -871,6 +866,85 @@ $(document).ready(function () {
         }
     }
 
+    function displayRankings(rankingsJson) {
+        const rankingsContainer = $('.ranking-list');
+        rankingsContainer.empty();
+        try {
+            const rankings = JSON.parse(rankingsJson);
+            rankings.forEach(function(ranking) {
+                const listItem = $('<li class="list-group-item"></li>');
+                const stationId = $('<span class="station-name"></span>').text(`${ranking.station_name}`);
+
+                const averageRatingContainer = $('<div class="average-rating-container" style="display: flex; align-items: center;"></div>');
+                const averageRating = $('<div class="average-rating" style="display: flex;"></div>');
+                const ratingValue = parseFloat(ranking.average_rating);
+
+                const fullStars = Math.floor(ratingValue);
+                const hasHalfStar = !Number.isInteger(ratingValue);
+                const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+
+                for (let i = 0; i < fullStars; i++) {
+                    averageRating.append('<i class="fas fa-star"></i>'); // filled star
+                }
+                if (hasHalfStar) {
+                    averageRating.append('<i class="fas fa-star-half-alt"></i>'); // half star
+                }
+                for (let i = 0; i < emptyStars; i++) {
+                    averageRating.append('<i class="far fa-star"></i>'); // empty star
+                }
+                const averageRatingNumber = $('<span class="average-rating-number" style="margin-left: 5px;"></span>').text(`(${ratingValue.toFixed(1)})`);
+                averageRatingContainer.append(averageRating);
+                averageRatingContainer.append(averageRatingNumber);
+
+                const reviewCount = $('<span class="review-count" style="margin-left: 10px;"></span>').text(`Reviews: ${ranking.review_count}`);
+                listItem.append(stationId);
+                listItem.append(averageRatingContainer);
+                listItem.append(reviewCount);
+
+                listItem.on('click', function() {
+                    console.log(ranking._id);
+                    const stationId = ranking._id;
+                    moveToStationAndOpenPopup(stationId);
+                    $('#rankingModal').modal('hide');
+                });
+                rankingsContainer.append(listItem);
+            });
+        } catch (error) {
+            console.error('Error during fetching rankings: ', error);
+        }
+    }
+
+    function moveToStationAndOpenPopup(stationId) {
+        const stationFeature = findStationFeatureById(stationId);
+        if (stationFeature) {
+            const coordinates = stationFeature.getGeometry().getCoordinates();
+            map.getView().animate({ center: coordinates, zoom: 12, duration: 1000 });
+            map.dispatchEvent({
+                type: 'click',
+                coordinate: coordinates,
+                pixel: map.getPixelFromCoordinate(coordinates)
+            });
+        } else {
+            console.error(`Station with ID ${stationId} not found`);
+        }
+    }
+
+    function findStationFeatureById(id) {
+        let foundFeature = null;
+        for (let layerKey in gasStationsMarkersLayers) {
+            const layer = gasStationsMarkersLayers[layerKey];
+            if (layer instanceof ol.layer.Vector) {
+                const source = layer.getSource();
+                console.log(source);
+                source.forEachFeature(feature => {
+                    if (feature.get('id') === id) {
+                        foundFeature = feature;
+                    }
+                });
+            }
+        }
+        return foundFeature;
+    }
 
     /*Listens if remove-marker button has been clicked and removes the user marker from the map.*/
     $(".remove-marker").click(function () {
@@ -1116,6 +1190,20 @@ $(document).ready(function () {
             showAlert('No marker selected to remove', 'warning');
         }
         $('#removeMarkerModal').modal('hide');
+    });
+
+    $('#ranking').on('click', function() {
+        $.ajax({
+            url: '/api/rankings',
+            type: 'GET',
+            success: function(response) {
+                    displayRankings(JSON.stringify(response));
+                    $('#rankingModal').modal('show'); // Show the modal after data is loaded
+            },
+            error: function(error) {
+                console.error('Error fetching rankings:', error);
+            }
+        });
     });
 
     /*Function handles the click event on the logout button.*/
