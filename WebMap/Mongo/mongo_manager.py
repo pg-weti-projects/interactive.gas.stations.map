@@ -1,6 +1,6 @@
 import configparser
 import hashlib
-from typing import Dict, List, Any, Mapping
+from typing import Any, Mapping
 
 import pymongo
 import logging
@@ -135,7 +135,7 @@ class MongoManager:
         return self.gas_stations_collection.delete_one({'_id': _id})
 
     @staticmethod
-    def find_nearest_coordinate(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
+    def calculate_distance_between_two_points(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
         """
         Calculates the distance between two coordinates using the Haversine formula.
 
@@ -159,15 +159,14 @@ class MongoManager:
         """Property method to access the 'users' collection in the database."""
         return self.db['users']
 
-    def register_user(self, username: str, password: str, average_fuel: str) -> bool:
+    def register_user(self, username: str, password: str) -> bool:
         """Registers a new user in the system with a unique ID, storing their hashed password."""
         id_user = self.generate_unique_id()
         hashed_password = hashlib.sha256(password.encode()).hexdigest()
         user_data = {
             '_id': id_user,
             'username': username,
-            'password': hashed_password,
-            'average_fuel': average_fuel
+            'password': hashed_password
         }
         exist = self.users_collection.find_one({'username': username})
         if exist is not None:
@@ -225,6 +224,10 @@ class MongoManager:
             })
 
         return {"favoriteStations": result}
+
+    def get_station_information(self, lon: float, lat: float) -> dict:
+        """Retrieves information about station based on given coords."""
+        return self.gas_stations_collection.find_one({'lon': lon, 'lat': lat})
 
     @property
     def reviews_collection(self):

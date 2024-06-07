@@ -6,6 +6,11 @@ $(document).ready(function () {
     // General Settings
     const defaultProjection = 'EPSG:4326';
     const apiKey = 'AAPKaf77b11595124e6295c9f2679a38fb9dJbeoPRXhOddgVhIXAURQSmut9oqQkOmIzIDqSr7EK-_Vyjo3Wm_mYzt-dUi6WT49';
+    const geojson = new ol.format.GeoJSON({
+        defaultDataProjection: defaultProjection,
+        featureProjection: "EPSG:3857"
+    });
+    const authentication = arcgisRest.ApiKeyManager.fromKey(apiKey);
 
     // Map Settings
     const mapLayersStyles = {
@@ -44,6 +49,7 @@ $(document).ready(function () {
     let userMarkerLayer;
     let userMarkerCoords = null;
 
+    //A-B Route settings
     let aMarkerLayer;
     let aMarkerCoords = null;
     let isAMarkerOnMap = false;
@@ -52,20 +58,28 @@ $(document).ready(function () {
     let bMarkerCoords  = null;
     let isBMarkerOnMap = false;
 
+    let fuelAmount = null;
+    let baseFuelAmount = null;
+    let tankFuelAmount = null;
+    let fuelConsumption = null;
+    let carRangeKm = null;
 
+    let routeABMarkersLayer;
+    let roadABMarkerOnMap = false;
+
+    let safeDistanceValueRatioMeters = null;
+    const nearestStationsToFind = 5;
     // Routes settings
     const routeStrokeStyle = { color: "hsl(205, 100%, 50%)", width: 4, opacity: 0.6 };
     let routeMarkerLayer;
     let roadMarkerOnMap = false;
-
-    let routeABMarkersLayer;
-    let roadABMarkerOnMap = false;
 
 
     // Other settings
     let drawControl = null;
     let popover;
     let selectedMarker = null;
+    let spinner = $('.spinner-border');
     let routeMarkerLayerRadius;
     let radiusValue = 10;
     let radiusLayer;
@@ -165,21 +179,8 @@ $(document).ready(function () {
             if (userMarkerCoords !== null) {
 
                 // if road is on the map, we need to remove it before mark another route
-                removeRouteIfExist("userMarker");
-
-                // make an AJAX request to the Flask route to get nearest station
-                $.ajax({
-                    url: `/api/find_nearest_station/${userMarkerCoords[0]}/${userMarkerCoords[1]}`,
-                    type: 'GET',
-                    dataType: 'json',
-                    success: function (response) {
-                        const stationCoords = response.stationCoords;
-                        updateRoute(userMarkerCoords, stationCoords);
-                    },
-                    error: function (error) {
-                        showAlert('Error occurred while finding the nearest station.', 'danger');
-                    }
-                });
+                clearRouteLayer("userMarker");
+                findStationAndDrawRoute(userMarkerCoords);
             } else {
                 showAlert('Please place a marker first.', 'warning');
             }
@@ -188,14 +189,15 @@ $(document).ready(function () {
         /*After click this button a route between A and B marker will be designated*/
         $('.find-best-route').click(function () {
             if (aMarkerCoords !== null && bMarkerCoords !== null) {
-                console.log("FINDING ROUTE BETWEEN A AND B!");
-                console.log("A COORDS:", aMarkerCoords);
-                console.log("B COORDS:", bMarkerCoords);
+                console.log("Trying to find route between A and B.");
 
-                // if road is on the map, we need to remove it before mark another route
-                removeRouteIfExist("ABMarker");
+                // if road is on the map, we need to remove all params related to this route from map and settings
+                clearABRouteParams();
 
-                updateABRoute();
+                // If user click this button we have to block all buttons from  A-B route menu
+                switchRouteOptions(true);
+
+                findABRouteWithAllStations();
             } else {
                 showAlert('Please place a marker first.', 'warning');
             }
@@ -214,7 +216,7 @@ $(document).ready(function () {
 
                         // If the favorite filter is selected, all other filters are disabled and unchecked
                         for (let key in gasStationsMarkersLayers) {
-                            if (key !== "Favorites") {
+                            if (key !== "Favorites" && key !== "None") {
                                 gasStationsMarkersLayers[key].setVisible(false);
                             }
                         }
@@ -241,6 +243,18 @@ $(document).ready(function () {
                         gasStationsMarkersLayers[key].setVisible(true);
                     }
                 }
+            } else if (checkboxValue === "None") {
+                if ($(this).is(':checked')) {
+                    $('.filters-buttons').not(this).prop('checked', true);
+                    for (let key in gasStationsMarkersLayers) {
+                        gasStationsMarkersLayers[key].setVisible(true);
+                    }
+                } else {
+                    $('.filters-buttons').not(this).prop('checked', false);
+                    for (let key in gasStationsMarkersLayers) {
+                        gasStationsMarkersLayers[key].setVisible(false);
+                    }
+                }
             } else {
                 if ($(this).is(':checked')) {
                     gasStationsMarkersLayers[checkboxValue].setVisible(true);
@@ -248,6 +262,83 @@ $(document).ready(function () {
                     gasStationsMarkersLayers[checkboxValue].setVisible(false);
                 }
             }
+        });
+
+        //Handle writing only numbers in fuel amount inputbox
+        $('.fuel-amount').on('input', function() {
+            let input = $(this).val();
+            let regex = /^[0-9]+\.?[0-9]*$/;
+
+            if (!regex.test(input)) {
+                input = input.replace(/[^0-9.]/g,'');
+
+                input = input.replace(/^\./, '');
+
+                let parts = input.split('.');
+                if (parts.length > 2) {
+                    input = parts[0] + '.' + parts.slice(1).join('');
+                }
+                $(this).val(input);
+            }
+
+            if (input !== "") {
+                fuelAmount = parseFloat($(this).val());
+                baseFuelAmount = fuelAmount;
+            } else {
+                fuelAmount = null;
+                baseFuelAmount = null;
+            }
+            checkIfAllParamsFilledForABRoute();
+        });
+
+        //Handle writing only numbers in tank fuel amount inputbox
+        $('.fuel-tank-amount').on('input', function() {
+            let input = $(this).val();
+            let regex = /^[0-9]+\.?[0-9]*$/;
+
+            if (!regex.test(input)) {
+                input = input.replace(/[^0-9.]/g,'');
+
+                input = input.replace(/^\./, '');
+
+                let parts = input.split('.');
+                if (parts.length > 2) {
+                    input = parts[0] + '.' + parts.slice(1).join('');
+                }
+                $(this).val(input);
+            }
+
+            if (input !== "") {
+                tankFuelAmount = parseFloat($(this).val());
+            } else {
+                tankFuelAmount = null;
+            }
+            checkIfAllParamsFilledForABRoute();
+        });
+
+        //Handle writing only numbers in fuel consumption input box
+        $('.fuel-consumption').on('input', function() {
+            let input = $(this).val();
+            let regex = /^[0-9]+\.?[0-9]*$/;
+
+            if (!regex.test(input)) {
+                input = input.replace(/[^0-9.]/g,'');
+
+                input = input.replace(/^\./, '');
+
+                let parts = input.split('.');
+                if (parts.length > 2) {
+                    input = parts[0] + '.' + parts.slice(1).join('');
+                }
+                $(this).val(input);
+            }
+
+            if (input !== "") {
+                fuelConsumption = parseFloat($(this).val());
+            } else {
+                fuelConsumption = null;
+            }
+            checkIfAllParamsFilledForABRoute();
         });
 
         // Handle changing map style
@@ -264,13 +355,158 @@ $(document).ready(function () {
         addPopupWindowLogic();
     }
 
+    /*Disable or enable A-B route options in menu*/
+    function switchRouteOptions(value)
+    {
+        let options = ['.fuel-consumption', '.fuel-amount', '.fuel-tank-amount', '.add-a-marker', '.add-b-marker',
+        '.remove-a-b-marker', '.find-best-route'];
 
-    /*If user put A and B marker on the map, find-best-route button is unlocked*/
-    function checkIfBothMarkersOnTheMap() {
-        if (isAMarkerOnMap && isBMarkerOnMap)
+        for (let i = 0; i < options.length; i++)
         {
-            $('.find-best-route').prop('disabled', false);
+            $(options[i]).prop('disabled', value);
         }
+
+    }
+
+
+    /*Reset all A-B route parameters (fuel, fuel tank amount, etc.)*/
+    function clearABRouteParams()
+    {
+        clearRouteLayer("ABMarker");
+        fuelAmount = parseFloat($('.fuel-amount').val());
+        baseFuelAmount = fuelAmount;
+        tankFuelAmount = parseFloat($('.fuel-tank-amount').val());
+        fuelConsumption = parseFloat($('.fuel-consumption').val());
+        safeDistanceValueRatioMeters = null;
+        carRangeKm = null;
+    }
+
+
+    /*Remove selected route from the map if exist*/
+    function clearRouteLayer(routeLayerType)
+    {
+        if (routeLayerType === "userMarker") {
+            if (roadMarkerOnMap) {
+                routeMarkerLayer.getSource().clear();
+                roadMarkerOnMap = false;
+            }
+        } else if (routeLayerType === "ABMarker") {
+            if (roadABMarkerOnMap) {
+                routeABMarkersLayer.getSource().clear();
+                roadABMarkerOnMap = false;
+            }
+        }
+    }
+
+
+    /*If user put A and B marker on the map and entered fuel amount, find-best-route button is unlocked*/
+    function checkIfAllParamsFilledForABRoute()
+    {
+        if (isAMarkerOnMap && isBMarkerOnMap && fuelAmount && tankFuelAmount && fuelConsumption) {
+            $('.find-best-route').prop('disabled', false);
+        } else {
+            $('.find-best-route').prop('disabled', true);
+        }
+    }
+
+
+    /*Finds nearest station by using api call and draw route from user point to this station*/
+    async function findStationAndDrawRoute(userMarkerCoords)
+    {
+        try {
+            let stationCoords = await findNearestStationCoords(userMarkerCoords);
+            if (stationCoords) {
+                drawRoute([userMarkerCoords, stationCoords], "nearestStation");
+            }
+        }
+        catch (error) {
+            console.error("An error occurred during attempt to get route from two points!", error);
+            showAlert('Failed to find A - B route!', 'error');
+        }
+    }
+
+
+    /*Finds nearest station and return its coordinates*/
+    async function findNearestStationCoords(pointCoords) {
+        return new Promise((resolve, reject) => {
+            $.ajax({
+                url: `/api/find_nearest_stations/${pointCoords[0]}/${pointCoords[1]}`,
+                type: 'GET',
+                dataType: 'json',
+                success: function (response) {
+                    resolve(response.stationCoords);
+                },
+                error: function (error) {
+                    showAlert('Error occurred while finding the nearest station.', 'danger');
+                    reject(error);
+                }
+            });
+        });
+    }
+
+
+    /*Finds nearest n stations and return list of its coordinates*/
+    async function findNearestNStationsData(pointCoords)
+    {
+        return new Promise((resolve, reject) => {
+            $.ajax({
+                url: `/api/find_nearest_stations/${pointCoords[0]}/${pointCoords[1]}/${nearestStationsToFind}`,
+                type: 'GET',
+                dataType: 'json',
+                success: function (response) {
+                    resolve(response.stationsData)
+                },
+                error: function (error) {
+                    showAlert('Error occurred while finding the nearest station.', 'danger');
+                    reject(error);
+                }
+            });
+        });
+    }
+
+
+    /*Finds the most optimal route to nearest station from given point based on n nearest stations*/
+    async function findNearestMostOptimalStationCoords(pointCoords)
+    {
+        let stationCoords = null;
+        let routesData = [];
+
+        let stationsData = await findNearestNStationsData(pointCoords);
+        if (stationsData.length === 0) {
+            return [];
+        }
+
+        for (let i = 0; i < stationsData.length; i++) {
+            stationCoords = [stationsData[i].lon, stationsData[i].lat];
+            let temp = await findRouteBetweenTwoPoints(pointCoords, stationCoords);
+            routesData.push({coords: stationCoords, distance: temp.features[0].properties.Total_Kilometers});
+        }
+
+        let minDistanceLocation = routesData.reduce((min, loc) => loc.distance < min.distance ? loc : min, routesData[0]);
+        return minDistanceLocation.coords;
+    }
+
+
+    /*Finds the most optimal route to nearest station from previous point based on n nearest stations*/ // TODO: REMOVE IF NOT NECESSARY
+    async function findNearestMostOptimalStationCoordsFromPreviousPoint(pointCoords, lastPointCoords)
+    {
+        let stationCoords = null;
+        let routesData = [];
+
+        let stationsData = await findNearestNStationsData(pointCoords);
+        if (stationsData.length === 0) {
+            return [];
+        }
+
+        for (let i = 0; i < stationsData.length; i++) {
+            stationCoords = [stationsData[i].lon, stationsData[i].lat];
+            let temp = await findRouteBetweenTwoPoints(lastPointCoords, stationCoords);
+            routesData.push({coords: stationCoords, distance: temp.features[0].properties.Total_Kilometers});
+        }
+        console.log("FINDING BEST STATION ROUTE: FOR POINT:", pointCoords, " FOUND NEAREST STATIONS: ", stationsData);
+
+        let minDistanceLocation = routesData.reduce((min, loc) => loc.distance < min.distance ? loc : min, routesData[0]);
+        return minDistanceLocation.coords;
     }
 
     function createGeoJSON(coords, type = 'Point') {
@@ -368,6 +604,20 @@ $(document).ready(function () {
     }
 
 
+    /*Gets route type based on given coordinates*/
+    async function getRoadType(pointCoords) {
+        const osmUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${pointCoords[1]}&lon=${pointCoords[0]}&zoom=18&addressdetails=1`;
+        try {
+            const response = await fetch(osmUrl);
+            const data = await response.json();
+            return data.type;
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred while checking the road type.');
+            return null;
+        }
+    }
+
 
     /*Function to fetch user's favorite stations from the database*/
     function fetchFavoriteStationsFromDatabase() {
@@ -384,6 +634,7 @@ $(document).ready(function () {
             });
         });
     }
+
 
     /*Assign all Feature Objects to specific  gas station Layer*/
     function assignMarkersForEachGasStationLayer() {
@@ -403,51 +654,256 @@ $(document).ready(function () {
         });
     }
 
-    function updateABRoute()
-    {
-        roadABMarkerOnMap = true;
-        // TODO: prepare function which designate route between A and B marker with all dependencies
+
+    /*Draws point on map in selected place and with selected icon*/
+    function drawPointOnABRoute(coords, pathToImg) {
+        const feature = new ol.Feature({
+            geometry: new ol.geom.Point(ol.proj.fromLonLat(coords)),
+            name: 'Point at specified distance',
+        });
+
+        const iconStyle = new ol.style.Style({
+            image: new ol.style.Icon({
+                scale: 0.1,
+                anchor: gasStationsMarkersAnchor,
+                src: pathToImg
+            })
+        });
+        feature.setStyle(iconStyle);
+
+        if (!routeABMarkersLayer.getSource()) {
+            routeABMarkersLayer.setSource(new ol.source.Vector());
+        }
+        routeABMarkersLayer.getSource().addFeature(feature);
     }
 
 
-    /*Add route to routeMarkerLayer between two points (default user marker and station marker). Displays information
-    * about route ( Distance and Travel Time ) */
-    function updateRoute(userMarkerCoords, stationCoords) {
+    /*Find nearest given distance point at given route*/
+    async function findPointAtGivenDistanceOnRoute(routePointsCoords, distanceMeters)
+    {
+        let currentDistanceMeters = 0;
 
-        const geojson = new ol.format.GeoJSON({
-            defaultDataProjection: defaultProjection,
-            featureProjection: "EPSG:3857"
-        });
+        for (let i = 1; i < routePointsCoords.length; i++) {
+            let segmentDistance = haversineDistance(routePointsCoords[i - 1], routePointsCoords[i]);
+            currentDistanceMeters = currentDistanceMeters + (segmentDistance * 1000);
 
-        const authentication = arcgisRest.ApiKeyManager.fromKey(apiKey);
-        arcgisRest
-        .solveRoute({
-            stops: [userMarkerCoords, stationCoords],
+            if (currentDistanceMeters >= distanceMeters) {
+                //drawPointOnABRoute(routePointsCoords[i], 'static/img/user_marker.png'); // TODO UNCOMMENT TO SEE ALGORITHM PLACE POINTS
+                return routePointsCoords[i];
+            }
+        }
+        return routePointsCoords[routePointsCoords.length - 1];
+    }
+
+    /*Checks if station from given point in car range distance exists.*/
+    async function checkIfStationNearCarDistance(pointCoords)
+    {
+        let stationCoords = await findNearestMostOptimalStationCoords(pointCoords);
+        let routeBetweenPointAndStation = await findRouteBetweenTwoPoints(pointCoords, stationCoords);
+        let routeDistance = routeBetweenPointAndStation.features[0].properties.Total_Kilometers * 1000;
+        return (carRangeKm * 1000) >= routeDistance;
+    }
+
+    async function findNearestStationPoint(routeData, startPointCoords, safeDistance, returnCoords)
+    {
+        // We must work on meters because working on float numbers sometimes leads to problems (e.g. 0.3 number )
+        let travelDistanceMeters = (carRangeKm * 1000) - safeDistance;
+
+        // If we check all points on the route to B point and can't find nearest station, then we're trying to find station
+        // from start point and if our possible to drive distance allows us to get to the station we return station coords
+        if (travelDistanceMeters <= 0) {
+            console.log("Could not find nearest station for each designated point on best route. Finding nearest station from start point point.")
+            let stationCoords = await findNearestMostOptimalStationCoords(startPointCoords);
+            let routeFromStartPointToStation = await findRouteBetweenTwoPoints(startPointCoords, stationCoords);
+            let routeFromStartPointToStationDistanceMeters = routeFromStartPointToStation.features[0].properties.Total_Kilometers * 1000;
+            if (safeDistance >= routeFromStartPointToStationDistanceMeters) {
+                return stationCoords;
+            } else {
+                return null;
+            }
+        }
+        let safeDistancePointCoords = await findPointAtGivenDistanceOnRoute(routeData.features[0].geometry.coordinates, travelDistanceMeters);
+        let nearestStationCoords = await findNearestMostOptimalStationCoords(safeDistancePointCoords);
+        let nearestStationRoute = await findRouteBetweenTwoPoints(safeDistancePointCoords, nearestStationCoords);
+        let nearestStationDistanceMeters = nearestStationRoute.features[0].properties.Total_Kilometers * 1000;
+
+        if (returnCoords) {
+            return nearestStationCoords;
+        }
+
+        if (safeDistance >= nearestStationDistanceMeters ) {
+            let roadType = await getRoadType(safeDistancePointCoords);
+            if (roadType === "trunk" || roadType === "mmotorway" || roadType === "bridge" ) {
+                let kmLimit = 10000;
+                let checkOtherNearestStationCoords = null;
+                let savedSafeDistance = safeDistance;
+                while (kmLimit > 0) {
+                    checkOtherNearestStationCoords = await findNearestStationPoint(routeData, safeDistancePointCoords, savedSafeDistance, true);
+                    if (checkOtherNearestStationCoords && (nearestStationCoords[0] !== checkOtherNearestStationCoords[0] && nearestStationCoords[1] !== checkOtherNearestStationCoords[1])) {
+                        break;
+                    }
+                    kmLimit -= safeDistanceValueRatioMeters;
+                    savedSafeDistance += safeDistanceValueRatioMeters;
+                }
+                return checkOtherNearestStationCoords;
+            } else {
+                return nearestStationCoords;
+            }
+        } else {
+            return await findNearestStationPoint(routeData, startPointCoords, safeDistance + safeDistanceValueRatioMeters, false);
+        }
+    }
+
+    /*Find route between A and B point with all stations that user must stop and fill his tank to have possibility
+      to get to the B point*/
+    async function findABRouteWithAllStations()
+    {
+        // FOR TESTS
+        // await getRoadType(15.416159, 53.957196); //Autostrada
+        // await getRoadType(15.231456 , 53.809754); // Nie
+
+        // aMarkerCoords = [18.466051, 54.432348];
+        // bMarkerCoords = [15.247346, 53.808799];
+        // fuelConsumption = 5;
+        // fuelAmount = 3;
+        // tankFuelAmount = 10;
+        // drawPointOnABRoute(aMarkerCoords, 'static/img/a_marker.png');
+        // drawPointOnABRoute(bMarkerCoords, 'static/img/b_marker.png');
+
+
+        carRangeKm = (fuelAmount / fuelConsumption) * 100;
+        spinner.show();
+        let isRouteValid = false;
+        let previousCoords = null;
+        let distanceToBPoint = null;
+        let nextPointCoords = null;
+        let wholeRouteStopsPoints = [];
+
+        // Checking if station from A point exist in our car available distance. If not we skip
+        if (await checkIfStationNearCarDistance(aMarkerCoords)) {
+            try {
+                let routeData = await findRouteBetweenTwoPoints(aMarkerCoords, bMarkerCoords);
+
+                if (routeData) {
+                    let kilometersABRoute = routeData.features[0].properties.Total_Kilometers;
+
+                    if (kilometersABRoute <= carRangeKm) {
+                        drawRoute([aMarkerCoords, bMarkerCoords], "ABRoute");
+                        isRouteValid = true;
+                    } else {
+                        nextPointCoords = aMarkerCoords;
+                        wholeRouteStopsPoints.push(nextPointCoords);
+                        while (true) {
+                            if (carRangeKm > 10) {
+                                safeDistanceValueRatioMeters = 1000;
+                            } else if (carRangeKm > 5) {
+                                safeDistanceValueRatioMeters = 500;
+                            }
+                            else {
+                                safeDistanceValueRatioMeters = 100;
+                            }
+                            let routeToBPoint = await findRouteBetweenTwoPoints(nextPointCoords, bMarkerCoords)
+                            distanceToBPoint = routeToBPoint.features[0].properties.Total_Kilometers;
+
+                            if (carRangeKm >= distanceToBPoint) {
+                                wholeRouteStopsPoints.push(bMarkerCoords);
+                                isRouteValid = true;
+                                break;
+                            } else {
+                                routeData = await findRouteBetweenTwoPoints(nextPointCoords, bMarkerCoords);
+                                previousCoords = nextPointCoords;
+                                nextPointCoords = await findNearestStationPoint(routeData, nextPointCoords, safeDistanceValueRatioMeters, false);
+                                if (nextPointCoords === null) {
+                                    showAlert("You can't even go to the nearest station!", 'warning');
+                                    break;
+                                }
+                                wholeRouteStopsPoints.push(nextPointCoords);
+                                fuelAmount = tankFuelAmount;
+                                carRangeKm = (fuelAmount/fuelConsumption) * 100;
+                            }
+                        }
+                        if (isRouteValid) {
+                            for(let i = 0; i < wholeRouteStopsPoints.length; i++)
+                            {
+                                if (i > 0 && i < wholeRouteStopsPoints.length - 1)
+                                {
+                                    drawPointOnABRoute(wholeRouteStopsPoints[i], 'static/img/fill_gas_station_point.png');
+                                }
+                            }
+                            drawRoute(wholeRouteStopsPoints, "ABRoute");
+                        }
+                    }
+                    if (isRouteValid) {
+                        roadABMarkerOnMap = true;
+                        showAlert('Found A - B route! Drawing...', 'success');
+                    }
+                }
+            } catch (error) {
+                console.error("An error occurred during attempt to get route from two points!", error);
+                showAlert('Failed to find A - B route!', 'error');
+            }
+        } else {
+            showAlert("You can't even go to the nearest station!", 'warning');
+        }
+
+        spinner.hide();
+        switchRouteOptions(false);
+    }
+
+
+    /*Find route between two points and return all data of this route*/
+    async function findRouteBetweenTwoPoints(beginRoutePoint, endRoutePoint) {
+        try {
+            const response = await arcgisRest.solveRoute({
+                stops: [beginRoutePoint, endRoutePoint],
+                authentication
+            });
+            return response.routes.geoJson;
+        } catch (error) {
+            console.error('An error occurred during attempt to get route from two points!', error);
+            throw error;
+        }
+    }
+
+
+    /*Add route on map between two points. Displays information about route ( Distance and Travel Time )*/
+    function drawRoute(stopsPointsCoords, routeType)
+    {
+        arcgisRest.solveRoute({
+            stops: stopsPointsCoords,
             authentication
         })
-        .then((response) => {
-
+        .then(async (response) => {
             const features = geojson.readFeatures(response.routes.geoJson);
-
+            let routeInformation = await prepareRouteInformation(response, routeType, stopsPointsCoords)
 
             const routeFeatures = features.map((feature) => {
-                const travelTime = parseFloat(response.directions[0].summary.totalDriveTime).toFixed(0);
-                const totalKilometers = parseFloat(response.routes.features[0].attributes.Total_Kilometers).toFixed(2);
-
                 return new ol.Feature({
                     geometry: feature.getGeometry(),
-                    name: `<b>Distance: ${totalKilometers} km</b><br><b>Travel time: ${travelTime} min</b>`,
+                    name: routeInformation,
+                    type: 'route'
                 });
             });
 
             const routeSource = new ol.source.Vector({
                 features: routeFeatures,
             });
-            routeMarkerLayer.setSource(routeSource);
 
-            roadMarkerOnMap = true;
+            if (routeType === "nearestStation") {
+                routeMarkerLayer.setSource(routeSource);
+                roadMarkerOnMap = true;
 
-            showAlert('Found nearest station! Drawing route...', 'success');
+                showAlert('Found nearest station! Drawing route...', 'success');
+            } else if (routeType === "ABRoute") {
+                if (!routeABMarkersLayer.getSource()) {
+                    routeABMarkersLayer.setSource(routeSource);
+                    roadABMarkerOnMap = true;
+                } else {
+                    routeABMarkersLayer.getSource().addFeatures(routeFeatures);
+                }
+            } else {
+                console.error("Incorrect route type!");
+            }
         })
         .catch((error) => {
             console.error('An error occurred during try to get route from points!', error);
@@ -456,24 +912,78 @@ $(document).ready(function () {
     }
 
 
-    /*Remove selected route from the map if exist*/
-    function removeRouteIfExist(routeLayerType) {
-        if (routeLayerType === "userMarker") {
-            if (roadMarkerOnMap) {
-                routeMarkerLayer.getSource().clear();
-                roadMarkerOnMap = false;
+    /*Prepares information about route that is displayed in the popup window*/
+    async function prepareRouteInformation(routeData, routeType, stopsPointsCoords)
+    {
+        const travelTime = parseFloat(routeData.directions[0].summary.totalDriveTime).toFixed(0);
+        const totalKilometers = parseFloat(routeData.routes.features[0].attributes.Total_Kilometers).toFixed(2);
+        if (routeType === "nearestStation") {
+            return `<b>Total Distance (km): ${totalKilometers}</b><br><b>Total travel time (min): ${travelTime}</b>`
+        } else if (routeType === "ABRoute")
+        {
+            // Get data from the whole route and from A point to next point on the route.
+            let wholeTravelTime = 0;
+            let routeInformation = ``;
+            const beginPossibleDistance = parseFloat((baseFuelAmount / fuelConsumption) * 100);
+            let routeToNearestStation = await findRouteBetweenTwoPoints(stopsPointsCoords[0], stopsPointsCoords[1]);
+            const travelTimeToNearestStation = parseFloat(routeToNearestStation.features[0].properties.Total_TravelTime);
+            const totalKilometersToNearestStation = parseFloat(routeToNearestStation.features[0].properties.Total_Kilometers).toFixed(2);
+            const beginBurntFuel = parseFloat((totalKilometersToNearestStation * fuelConsumption) / 100).toFixed(3);
+            try {
+                const stationsData = await Promise.all(
+                    stopsPointsCoords.slice(1, -1).map(([lon, lat]) => getStationData(lon, lat))
+                );
+                if (stationsData.length > 0) {
+                    routeInformation += `<b>Start Point: Point A</b><br><b>Coords: ${stopsPointsCoords[0][0].toFixed(2)}, ${stopsPointsCoords[0][1].toFixed(2)}</b><br><b>Distance to next station (km): ${totalKilometersToNearestStation}</b><br><b>Time to next station (min): ${travelTimeToNearestStation.toFixed(0)}</b><br><b>You will burn fuel (l): ${beginBurntFuel}</b><hr><br>`;
+                } else {
+                    routeInformation += `<b>Start Point: Point A</b><br><b>Coords: ${stopsPointsCoords[0][0].toFixed(2)}, ${stopsPointsCoords[0][1].toFixed(2)}</b><br><b>Distance to point B (km): ${totalKilometersToNearestStation}</b><br><b>Time to point B (min): ${travelTimeToNearestStation.toFixed(0)}</b><br><b>You will burn fuel (l): ${beginBurntFuel}</b><hr><br>`;
+                }
+
+                wholeTravelTime += travelTimeToNearestStation;
+
+                if (stationsData.length > 0) {
+                    for (let i = 0; i < stationsData.length; i++) {
+                        let routeBetweenTwoPoints = await findRouteBetweenTwoPoints(stopsPointsCoords[i+1], stopsPointsCoords[i+2]);
+                        const travelTime = parseFloat(routeBetweenTwoPoints.features[0].properties.Total_TravelTime);
+                        const totalKilometers = parseFloat(routeBetweenTwoPoints.features[0].properties.Total_Kilometers).toFixed(2);
+                        const burntFuel = parseFloat((totalKilometers * fuelConsumption) / 100).toFixed(3);
+                        if (i + 1 === stationsData.length) {
+                            routeInformation += `<b>Station name: ${stationsData[i].name}</b><br><b>Coords: ${(stationsData[i].lon).toFixed(2)}, ${(stationsData[i].lat).toFixed(2)}</b><br><b>Distance to point B (km): ${totalKilometers}</b><br><b>Time to point B (min): ${travelTime.toFixed(0)}</b><br><b>Distance after refuel (km): ${(tankFuelAmount / fuelConsumption) * 100}</b><br><b>You will burn fuel (l): ${burntFuel}</b><hr><br>`;
+                        } else {
+                            routeInformation += `<b>Station name: ${stationsData[i].name}</b><br><b>Coords: ${(stationsData[i].lon).toFixed(2)}, ${(stationsData[i].lat).toFixed(2)}</b><br><b>Distance to next station (km): ${totalKilometers}</b><br><b>Time to next station (min): ${travelTime.toFixed(0)}</b><br><b>Distance after refuel (km): ${(tankFuelAmount / fuelConsumption) * 100}</b><br><b>You will burn fuel (l): ${burntFuel}</b><hr>`;
+                        }
+                        wholeTravelTime += travelTime;
+                    }
+                }
+            } catch (error) {
+                console.error("An error occurred during attempt to fetch station data:", error);
             }
-        } else if (routeLayerType === "ABMarker") {
-            if (roadABMarkerOnMap) {
-                // routeABMarkersLayer.getSource().clear(); // TODO uncomment it when it will be implemented
-                roadABMarkerOnMap = false;
-            }
+            return `<b>Total distance (km): ${totalKilometers}</b><br><b>Total travel time (min): ${wholeTravelTime.toFixed(0)}</b><br><b>Range without refuel (km): ${beginPossibleDistance.toFixed(2)}</b><br><b>Points to visit on A-B route:</b><br><br>` + routeInformation
         }
     }
 
 
+    /*Gets stations data based on given coordinates*/
+    async function getStationData(lon, lat)
+    {
+        return new Promise((resolve, reject) => {
+            $.ajax({
+                url: `/api/get_station_information/${lon}/${lat}`,
+                type: 'GET',
+                success: function(response) {
+                    resolve(response.stationInformation);
+                },
+                error: function(error) {
+                    reject(error);
+                }
+            });
+        });
+    }
+
+
     /*Function activate drawing mode to add marker in place selected by user.*/
-    function addUserMarker(markerLayer, markerClass) {
+    function addUserMarker(markerLayer, markerClass)
+    {
         if (drawControl) {
             map.removeControl(drawControl);
             drawControl.setActive(false);
@@ -502,32 +1012,32 @@ $(document).ready(function () {
             if (markerClass === ".add-marker") {
                 $(markerClass).text('Change Marker Location');
                 $('.find-nearest-station').prop('disabled', false);
-                removeRouteIfExist("userMarker");
+                clearRouteLayer("userMarker");
                 userMarkerCoords = user_marked_lonlat.getCoordinates();
                 console.log('User marker coords: (', lon, ',', lat, ')');
             } else if (markerClass === ".add-a-marker") {
                 $(markerClass).text('Change A Marker Location');
-                removeRouteIfExist("ABMarker");
+                clearRouteLayer("ABMarker");
                 aMarkerCoords = user_marked_lonlat.getCoordinates();
                 isAMarkerOnMap = true;
-                checkIfBothMarkersOnTheMap();
+                checkIfAllParamsFilledForABRoute();
                 console.log('A marker coords: (', lon, ',', lat, ')');
             } else if (markerClass === ".add-b-marker") {
                 $(markerClass).text('Change B Marker Location');
-                removeRouteIfExist("ABMarker");
+                clearRouteLayer("ABMarker");
                 bMarkerCoords = user_marked_lonlat.getCoordinates();
                 isBMarkerOnMap = true;
-                checkIfBothMarkersOnTheMap();
+                checkIfAllParamsFilledForABRoute();
                 console.log('B marker coords: (', lon, ',', lat, ')');
             }
-
             showAlert(`Successfully placed marker (${lon}, ${lat})`, 'success');
         });
     }
 
 
     // Display popup on click
-    function disposePopover() {
+    function disposePopover()
+    {
         if (popover) {
             popover.dispose();
             popover = undefined;
@@ -535,10 +1045,12 @@ $(document).ready(function () {
     }
 
 
-    /*Add handler for clicking on Feature objects. When user click on this object (e.g. Marker, Route), a popup will
-    * appear with information about it. When user hover over Feature object, cursor will be changed. */
-    function addPopupWindowLogic() {
+    /*Handle map objects click by displaying popup window. The type of the displayed popup depends on the type
+    of the clicked object. */
+    function handleMapClick(feature, coordinate, featureType)
+    {
         const element = document.getElementById('popup');
+        const titleElement = document.createElement('div');
 
         const popup = new ol.Overlay({
           element: element,
@@ -546,21 +1058,20 @@ $(document).ready(function () {
           stopEvent: false,
         });
         map.addOverlay(popup);
+        popup.setPosition(coordinate);
 
-
-        // Handle click on Feature object
-        map.on('click', function (evt) {
-            const feature = map.forEachFeatureAtPixel(evt.pixel, function (feature) {
-                return feature;
+        if (featureType === "route")
+        {
+            titleElement.innerHTML = '<a class="ol-popup-closer" href="#"></a>';
+            popover = new bootstrap.Popover(element, {
+                placement: 'top',
+                html: true,
+                title: titleElement,
+                content: feature.get('name'),
             });
+            popover.show();
 
-            disposePopover();
-            if (!feature || !feature.get('name')) {
-                return;
-            }
-            popup.setPosition(evt.coordinate);
-
-            const titleElement = document.createElement('div');
+        } else if (featureType === "marker") {
             isInFavorites(feature).then(isFavorite => {
 
                 const imgElement = document.createElement('img');
@@ -598,6 +1109,30 @@ $(document).ready(function () {
             }).catch(error => {
                 console.error("Error checking favorites:", error);
             });
+        }
+
+    }
+
+
+    /*Add handler for clicking on Feature objects. When user click on this object (e.g. Marker, Route), a popup will
+    * appear with information about it. When user hover over Feature object, cursor will be changed. */
+    function addPopupWindowLogic() {
+        map.on('click', function (evt) {
+            const feature = map.forEachFeatureAtPixel(evt.pixel, function (feature) {
+                return feature;
+            });
+
+            disposePopover();
+            if (!feature) {
+                return;
+            }
+
+            const featureType = feature.get('type');
+            if (featureType === 'route') {
+                handleMapClick(feature, evt.coordinate, "route");
+            } else if (feature.get('name')) {
+                handleMapClick(feature, evt.coordinate, "marker");
+            }
         });
 
         document.getElementById('confirmAddComment').addEventListener('click', function() {
@@ -630,7 +1165,6 @@ $(document).ready(function () {
                 }
             }
         });
-
 
         // Change pointer when user hover over Feature object
         map.on('pointermove', function (event) {
@@ -902,7 +1436,6 @@ $(document).ready(function () {
                 listItem.append(reviewCount);
 
                 listItem.on('click', function() {
-                    console.log(ranking._id);
                     const stationId = ranking._id;
                     moveToStationAndOpenPopup(stationId);
                     $('#rankingModal').modal('hide');
@@ -935,7 +1468,6 @@ $(document).ready(function () {
             const layer = gasStationsMarkersLayers[layerKey];
             if (layer instanceof ol.layer.Vector) {
                 const source = layer.getSource();
-                console.log(source);
                 source.forEachFeature(feature => {
                     if (feature.get('id') === id) {
                         foundFeature = feature;
@@ -949,7 +1481,7 @@ $(document).ready(function () {
     /*Listens if remove-marker button has been clicked and removes the user marker from the map.*/
     $(".remove-marker").click(function () {
         if (userMarkerCoords !== null) {
-            removeRouteIfExist("userMarker");
+            clearRouteLayer("userMarker");
             userMarkerLayer.getSource().clear();
 
             userMarkerCoords = null;
@@ -969,6 +1501,7 @@ $(document).ready(function () {
         if (aMarkerCoords !== null || bMarkerCoords !== null) {
             aMarkerLayer.getSource().clear();
             bMarkerLayer.getSource().clear();
+            clearRouteLayer("ABMarker");
 
             aMarkerCoords = null;
             bMarkerCoords = null;
@@ -981,7 +1514,7 @@ $(document).ready(function () {
             $(".add-a-marker").text('Add A marker');
             $(".add-b-marker").text('Add B marker');
 
-            showAlert('Marker A and B removed', 'info');
+            showAlert('Removed markers from map', 'info');
         } else {
             showAlert('No marker to remove', 'warning');
         }
@@ -1222,5 +1755,4 @@ $(document).ready(function () {
     });
 
     init();
-
 });

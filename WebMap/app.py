@@ -94,10 +94,28 @@ def remove_marker() -> flask.request:
         return jsonify({'success': False, 'error': str(e)})
 
 
-@app.route("/api/find_nearest_station/<float:lon>/<float:lat>")
-def find_nearest_station(lon: float, lat: float) -> flask.Response:
+@app.route("/api/calculate_km_distance_between_two_points/<float:lon_a>/<float:lat_a>/<float:lon_b>/<float:lat_b>")
+def calculate_km_distance_between_two_points(lon_a: float, lat_a: float, lon_b: float, lat_b: float) -> flask.Response:
     """
-    Route API to find the nearest gas station.
+    Gets distance between two points.
+    :param lon_a: Longitude of first point
+    :param lat_a: Latitude of first point
+    :param lon_b: Longitude of the second point
+    :param lat_b: Latitude of the second point
+    :return: Distance in kilometers
+    """
+    return jsonify({'distance_km': mongo_manager.calculate_distance_between_two_points(lon_a, lat_a, lon_b, lat_b)})
+
+
+@app.route("/api/find_nearest_stations/<float:lon>/<float:lat>")
+@app.route("/api/find_nearest_stations/<float:lon>/<float:lat>/<int:amount>")
+def find_nearest_stations(lon: float, lat: float, amount: int = None) -> flask.Response:
+    """
+    Find nearest station ( or stations ) point from given coordinates.
+
+    :param lon: Point longitude
+    :param lat: Point latitude
+    :param amount: Amount of stations to find near to given point (optional)
 
     :return: Coordinates of the nearest gas station.
     """
@@ -108,17 +126,33 @@ def find_nearest_station(lon: float, lat: float) -> flask.Response:
     for item in data:
         lat_find = float(item.get("lat"))
         lon_find = float(item.get("lon"))
-        nearest_coordination = mongo_manager.find_nearest_coordinate(lon, lat, lon_find, lat_find)
+        distance = mongo_manager.calculate_distance_between_two_points(lon, lat, lon_find, lat_find)
 
         station_data = {
             'lat': lat_find,
             'lon': lon_find,
-            'km': nearest_coordination
+            'km': distance
         }
 
         nearest_stations.append(station_data)
-    nearest_station = min(nearest_stations, key=lambda x: x['km'])
-    return jsonify({"stationCoords": [nearest_station['lon'], nearest_station['lat']]})
+
+    if amount:
+        nearest_stations_list = sorted(nearest_stations, key=lambda x: x['km'])[:amount]
+        return jsonify({"stationsData": nearest_stations_list})
+    else:
+        nearest_station = min(nearest_stations, key=lambda x: x['km'])
+        return jsonify({"stationCoords": [nearest_station['lon'], nearest_station['lat']]})
+
+
+@app.route("/api/get_station_information/<float:lon>/<float:lat>")
+def get_station_information(lon: float, lat: float) -> flask.Response:
+    """
+    Gets information from MongoDB about station based on given coordinates.
+    :param lon: Station longitude coordinate.
+    :param lat: Station latitude coordinate.
+    :return: Found station data
+    """
+    return jsonify({"stationInformation": mongo_manager.get_station_information(lon, lat)})
 
 
 @app.route('/api/add_review', methods=['POST'])
@@ -274,8 +308,7 @@ def register_user() -> str | Response:
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        average_fuel = request.form.get('average_fuel')
-        result = mongo_manager.register_user(username, password, average_fuel)
+        result = mongo_manager.register_user(username, password)
         if result is False:
             return render_template('register.html', error='Username already exists')
         else:
