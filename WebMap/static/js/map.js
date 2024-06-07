@@ -481,6 +481,30 @@ $(document).ready(function () {
             let temp = await findRouteBetweenTwoPoints(pointCoords, stationCoords);
             routesData.push({coords: stationCoords, distance: temp.features[0].properties.Total_Kilometers});
         }
+
+        let minDistanceLocation = routesData.reduce((min, loc) => loc.distance < min.distance ? loc : min, routesData[0]);
+        return minDistanceLocation.coords;
+    }
+
+
+    /*Finds the most optimal route to nearest station from previous point based on n nearest stations*/ // TODO: REMOVE IF NOT NECESSARY
+    async function findNearestMostOptimalStationCoordsFromPreviousPoint(pointCoords, lastPointCoords)
+    {
+        let stationCoords = null;
+        let routesData = [];
+
+        let stationsData = await findNearestNStationsData(pointCoords);
+        if (stationsData.length === 0) {
+            return [];
+        }
+
+        for (let i = 0; i < stationsData.length; i++) {
+            stationCoords = [stationsData[i].lon, stationsData[i].lat];
+            let temp = await findRouteBetweenTwoPoints(lastPointCoords, stationCoords);
+            routesData.push({coords: stationCoords, distance: temp.features[0].properties.Total_Kilometers});
+        }
+        console.log("FINDING BEST STATION ROUTE: FOR POINT:", pointCoords, " FOUND NEAREST STATIONS: ", stationsData);
+
         let minDistanceLocation = routesData.reduce((min, loc) => loc.distance < min.distance ? loc : min, routesData[0]);
         return minDistanceLocation.coords;
     }
@@ -580,6 +604,20 @@ $(document).ready(function () {
     }
 
 
+    /*Gets route type based on given coordinates*/
+    async function getRoadType(pointCoords) {
+        const osmUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${pointCoords[1]}&lon=${pointCoords[0]}&zoom=18&addressdetails=1`;
+        try {
+            const response = await fetch(osmUrl);
+            const data = await response.json();
+            return data.type;
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred while checking the road type.');
+            return null;
+        }
+    }
+
 
     /*Function to fetch user's favorite stations from the database*/
     function fetchFavoriteStationsFromDatabase() {
@@ -640,45 +678,33 @@ $(document).ready(function () {
     }
 
 
-    /*Gets distance in kilometers between two points based on Haversine algorithm*/
-    async function getDistanceInKmBetweenTwoPoints(firstPointCoords, secondPointCoords)
-    {
-        let paramsUrl = `${firstPointCoords[0]}/${firstPointCoords[1]}/${secondPointCoords[0]}/${secondPointCoords[1]}`;
-        return new Promise((resolve, reject) => {
-            $.ajax({
-                url: `/api/calculate_km_distance_between_two_points/${paramsUrl}`,
-                type: 'GET',
-                dataType: 'json',
-                success: function (response) {
-                    resolve(response.distance_km);
-                },
-                error: function (error) {
-                    showAlert('Error occurred during attempt to get distance between two points', 'danger');
-                    reject(error);
-                }
-            });
-        });
-    }
-
-
     /*Find nearest given distance point at given route*/
     async function findPointAtGivenDistanceOnRoute(routePointsCoords, distanceMeters)
     {
         let currentDistanceMeters = 0;
 
         for (let i = 1; i < routePointsCoords.length; i++) {
-            const segmentDistance = await getDistanceInKmBetweenTwoPoints(routePointsCoords[i - 1], routePointsCoords[i]);
+            let segmentDistance = haversineDistance(routePointsCoords[i - 1], routePointsCoords[i]);
             currentDistanceMeters = currentDistanceMeters + (segmentDistance * 1000);
 
             if (currentDistanceMeters >= distanceMeters) {
+                //drawPointOnABRoute(routePointsCoords[i], 'static/img/user_marker.png'); // TODO UNCOMMENT TO SEE ALGORITHM PLACE POINTS
                 return routePointsCoords[i];
             }
         }
         return routePointsCoords[routePointsCoords.length - 1];
     }
 
+    /*Checks if station from given point in car range distance exists.*/
+    async function checkIfStationNearCarDistance(pointCoords)
+    {
+        let stationCoords = await findNearestMostOptimalStationCoords(pointCoords);
+        let routeBetweenPointAndStation = await findRouteBetweenTwoPoints(pointCoords, stationCoords);
+        let routeDistance = routeBetweenPointAndStation.features[0].properties.Total_Kilometers * 1000;
+        return (carRangeKm * 1000) >= routeDistance;
+    }
 
-    async function findNearestStationPoint(routeData, startPointCoords, safeDistance)
+    async function findNearestStationPoint(routeData, startPointCoords, safeDistance, returnCoords)
     {
         // We must work on meters because working on float numbers sometimes leads to problems (e.g. 0.3 number )
         let travelDistanceMeters = (carRangeKm * 1000) - safeDistance;
@@ -696,16 +722,35 @@ $(document).ready(function () {
                 return null;
             }
         }
-        let safeDistancePointCoords = await findPointAtGivenDistanceOnRoute(routeData.features[0].geometry.coordinates,
-                                                                            travelDistanceMeters);
+        let safeDistancePointCoords = await findPointAtGivenDistanceOnRoute(routeData.features[0].geometry.coordinates, travelDistanceMeters);
         let nearestStationCoords = await findNearestMostOptimalStationCoords(safeDistancePointCoords);
         let nearestStationRoute = await findRouteBetweenTwoPoints(safeDistancePointCoords, nearestStationCoords);
         let nearestStationDistanceMeters = nearestStationRoute.features[0].properties.Total_Kilometers * 1000;
 
-        if (safeDistance >= nearestStationDistanceMeters ) {
+        if (returnCoords) {
             return nearestStationCoords;
+        }
+
+        if (safeDistance >= nearestStationDistanceMeters ) {
+            let roadType = await getRoadType(safeDistancePointCoords);
+            if (roadType === "trunk" || roadType === "mmotorway" || roadType === "bridge" ) {
+                let kmLimit = 10000;
+                let checkOtherNearestStationCoords = null;
+                let savedSafeDistance = safeDistance;
+                while (kmLimit > 0) {
+                    checkOtherNearestStationCoords = await findNearestStationPoint(routeData, safeDistancePointCoords, savedSafeDistance, true);
+                    if (checkOtherNearestStationCoords && (nearestStationCoords[0] !== checkOtherNearestStationCoords[0] && nearestStationCoords[1] !== checkOtherNearestStationCoords[1])) {
+                        break;
+                    }
+                    kmLimit -= safeDistanceValueRatioMeters;
+                    savedSafeDistance += safeDistanceValueRatioMeters;
+                }
+                return checkOtherNearestStationCoords;
+            } else {
+                return nearestStationCoords;
+            }
         } else {
-            return findNearestStationPoint(routeData, startPointCoords, safeDistance + safeDistanceValueRatioMeters);
+            return await findNearestStationPoint(routeData, startPointCoords, safeDistance + safeDistanceValueRatioMeters, false);
         }
     }
 
@@ -713,6 +758,19 @@ $(document).ready(function () {
       to get to the B point*/
     async function findABRouteWithAllStations()
     {
+        // FOR TESTS
+        // await getRoadType(15.416159, 53.957196); //Autostrada
+        // await getRoadType(15.231456 , 53.809754); // Nie
+
+        // aMarkerCoords = [18.466051, 54.432348];
+        // bMarkerCoords = [15.247346, 53.808799];
+        // fuelConsumption = 5;
+        // fuelAmount = 3;
+        // tankFuelAmount = 10;
+        // drawPointOnABRoute(aMarkerCoords, 'static/img/a_marker.png');
+        // drawPointOnABRoute(bMarkerCoords, 'static/img/b_marker.png');
+
+
         carRangeKm = (fuelAmount / fuelConsumption) * 100;
         spinner.show();
         let isRouteValid = false;
@@ -721,64 +779,73 @@ $(document).ready(function () {
         let nextPointCoords = null;
         let wholeRouteStopsPoints = [];
 
-        try {
-            let routeData = await findRouteBetweenTwoPoints(aMarkerCoords, bMarkerCoords);
+        // Checking if station from A point exist in our car available distance. If not we skip
+        if (await checkIfStationNearCarDistance(aMarkerCoords)) {
+            try {
+                let routeData = await findRouteBetweenTwoPoints(aMarkerCoords, bMarkerCoords);
 
-            if (routeData) {
-                let kilometersABRoute = routeData.features[0].properties.Total_Kilometers;
+                if (routeData) {
+                    let kilometersABRoute = routeData.features[0].properties.Total_Kilometers;
 
-                if (kilometersABRoute <= carRangeKm) {
-                    drawRoute([aMarkerCoords, bMarkerCoords], "ABRoute");
-                    isRouteValid = true;
-                } else {
-                    nextPointCoords = aMarkerCoords;
-                    wholeRouteStopsPoints.push(nextPointCoords);
-                    while (true) {
-                        if (carRangeKm > 5) {
-                            safeDistanceValueRatioMeters = 500;
-                        } else {
-                            safeDistanceValueRatioMeters = 100;
-                        }
-                        let routeToBPoint = await findRouteBetweenTwoPoints(nextPointCoords, bMarkerCoords)
-                        distanceToBPoint = routeToBPoint.features[0].properties.Total_Kilometers;
-
-                        if (carRangeKm >= distanceToBPoint) {
-                            wholeRouteStopsPoints.push(bMarkerCoords);
-                            isRouteValid = true;
-                            break;
-                        } else {
-                            routeData = await findRouteBetweenTwoPoints(nextPointCoords, bMarkerCoords);
-                            previousCoords = nextPointCoords;
-                            nextPointCoords = await findNearestStationPoint(routeData, nextPointCoords, safeDistanceValueRatioMeters);
-                            if (nextPointCoords === null) {
-                                showAlert("You can't even go to the nearest station!", 'warning')
-                                break;
+                    if (kilometersABRoute <= carRangeKm) {
+                        drawRoute([aMarkerCoords, bMarkerCoords], "ABRoute");
+                        isRouteValid = true;
+                    } else {
+                        nextPointCoords = aMarkerCoords;
+                        wholeRouteStopsPoints.push(nextPointCoords);
+                        while (true) {
+                            if (carRangeKm > 10) {
+                                safeDistanceValueRatioMeters = 1000;
+                            } else if (carRangeKm > 5) {
+                                safeDistanceValueRatioMeters = 500;
                             }
-                            wholeRouteStopsPoints.push(nextPointCoords);
-                            fuelAmount = tankFuelAmount;
-                            carRangeKm = (fuelAmount/fuelConsumption) * 100;
+                            else {
+                                safeDistanceValueRatioMeters = 100;
+                            }
+                            let routeToBPoint = await findRouteBetweenTwoPoints(nextPointCoords, bMarkerCoords)
+                            distanceToBPoint = routeToBPoint.features[0].properties.Total_Kilometers;
+
+                            if (carRangeKm >= distanceToBPoint) {
+                                wholeRouteStopsPoints.push(bMarkerCoords);
+                                isRouteValid = true;
+                                break;
+                            } else {
+                                routeData = await findRouteBetweenTwoPoints(nextPointCoords, bMarkerCoords);
+                                previousCoords = nextPointCoords;
+                                nextPointCoords = await findNearestStationPoint(routeData, nextPointCoords, safeDistanceValueRatioMeters, false);
+                                if (nextPointCoords === null) {
+                                    showAlert("You can't even go to the nearest station!", 'warning');
+                                    break;
+                                }
+                                wholeRouteStopsPoints.push(nextPointCoords);
+                                fuelAmount = tankFuelAmount;
+                                carRangeKm = (fuelAmount/fuelConsumption) * 100;
+                            }
+                        }
+                        if (isRouteValid) {
+                            for(let i = 0; i < wholeRouteStopsPoints.length; i++)
+                            {
+                                if (i > 0 && i < wholeRouteStopsPoints.length - 1)
+                                {
+                                    drawPointOnABRoute(wholeRouteStopsPoints[i], 'static/img/fill_gas_station_point.png');
+                                }
+                            }
+                            drawRoute(wholeRouteStopsPoints, "ABRoute");
                         }
                     }
                     if (isRouteValid) {
-                        for(let i = 0; i < wholeRouteStopsPoints.length; i++)
-                        {
-                            if (i > 0 && i < wholeRouteStopsPoints.length - 1)
-                            {
-                                drawPointOnABRoute(wholeRouteStopsPoints[i], 'static/img/fill_gas_station_point.png');
-                            }
-                        }
-                        drawRoute(wholeRouteStopsPoints, "ABRoute");
+                        roadABMarkerOnMap = true;
+                        showAlert('Found A - B route! Drawing...', 'success');
                     }
                 }
-                if (isRouteValid) {
-                    roadABMarkerOnMap = true;
-                    showAlert('Found A - B route! Drawing...', 'success');
-                }
+            } catch (error) {
+                console.error("An error occurred during attempt to get route from two points!", error);
+                showAlert('Failed to find A - B route!', 'error');
             }
-        } catch (error) {
-            console.error("An error occurred during attempt to get route from two points!", error);
-            showAlert('Failed to find A - B route!', 'error');
+        } else {
+            showAlert("You can't even go to the nearest station!", 'warning');
         }
+
         spinner.hide();
         switchRouteOptions(false);
     }
@@ -855,39 +922,43 @@ $(document).ready(function () {
         } else if (routeType === "ABRoute")
         {
             // Get data from the whole route and from A point to next point on the route.
+            let wholeTravelTime = 0;
+            let routeInformation = ``;
             const beginPossibleDistance = parseFloat((baseFuelAmount / fuelConsumption) * 100);
-            let routeInformation = `<b>Total distance (km): ${totalKilometers}</b><br><b>Total travel time (min): ${travelTime}</b><br><b>Range without refuel (km): ${beginPossibleDistance}</b><br><b>Points to visit on A-B route:</b><br><br>`;
             let routeToNearestStation = await findRouteBetweenTwoPoints(stopsPointsCoords[0], stopsPointsCoords[1]);
-            const travelTimeToNearestStation = parseFloat(routeToNearestStation.features[0].properties.Total_TravelTime).toFixed(0);
+            const travelTimeToNearestStation = parseFloat(routeToNearestStation.features[0].properties.Total_TravelTime);
             const totalKilometersToNearestStation = parseFloat(routeToNearestStation.features[0].properties.Total_Kilometers).toFixed(2);
-            const beginBurntFuel = parseFloat((travelTimeToNearestStation * fuelConsumption) / 100);
+            const beginBurntFuel = parseFloat((totalKilometersToNearestStation * fuelConsumption) / 100).toFixed(3);
             try {
                 const stationsData = await Promise.all(
                     stopsPointsCoords.slice(1, -1).map(([lon, lat]) => getStationData(lon, lat))
                 );
                 if (stationsData.length > 0) {
-                    routeInformation += `<b>Point: Point A</b><br><b>Coords: ${stopsPointsCoords[0][0].toFixed(2)}, ${stopsPointsCoords[0][1].toFixed(2)}</b><br><b>Distance to next station (km): ${totalKilometersToNearestStation}</b><br><b>Time to next station (min): ${travelTimeToNearestStation}</b><br><b>You will burn fuel (l): ${beginBurntFuel}</b><hr><br>`;
+                    routeInformation += `<b>Start Point: Point A</b><br><b>Coords: ${stopsPointsCoords[0][0].toFixed(2)}, ${stopsPointsCoords[0][1].toFixed(2)}</b><br><b>Distance to next station (km): ${totalKilometersToNearestStation}</b><br><b>Time to next station (min): ${travelTimeToNearestStation.toFixed(0)}</b><br><b>You will burn fuel (l): ${beginBurntFuel}</b><hr><br>`;
                 } else {
-                    routeInformation += `<b>Point: Point A</b><br><b>Coords: ${stopsPointsCoords[0][0].toFixed(2)}, ${stopsPointsCoords[0][1].toFixed(2)}</b><br><b>Distance to point B (km): ${totalKilometersToNearestStation}</b><br><b>Time to point B (min): ${travelTimeToNearestStation}</b><br><b>You will burn fuel (l): ${beginBurntFuel}</b><hr><br>`;
+                    routeInformation += `<b>Start Point: Point A</b><br><b>Coords: ${stopsPointsCoords[0][0].toFixed(2)}, ${stopsPointsCoords[0][1].toFixed(2)}</b><br><b>Distance to point B (km): ${totalKilometersToNearestStation}</b><br><b>Time to point B (min): ${travelTimeToNearestStation.toFixed(0)}</b><br><b>You will burn fuel (l): ${beginBurntFuel}</b><hr><br>`;
                 }
+
+                wholeTravelTime += travelTimeToNearestStation;
 
                 if (stationsData.length > 0) {
                     for (let i = 0; i < stationsData.length; i++) {
                         let routeBetweenTwoPoints = await findRouteBetweenTwoPoints(stopsPointsCoords[i+1], stopsPointsCoords[i+2]);
-                        const travelTime = parseFloat(routeBetweenTwoPoints.features[0].properties.Total_TravelTime).toFixed(0);
+                        const travelTime = parseFloat(routeBetweenTwoPoints.features[0].properties.Total_TravelTime);
                         const totalKilometers = parseFloat(routeBetweenTwoPoints.features[0].properties.Total_Kilometers).toFixed(2);
-                        const burntFuel = parseFloat((totalKilometers * fuelConsumption) / 100);
+                        const burntFuel = parseFloat((totalKilometers * fuelConsumption) / 100).toFixed(3);
                         if (i + 1 === stationsData.length) {
-                            routeInformation += `<b>Station name: ${stationsData[i].name}</b><br><b>Coords: ${(stationsData[i].lon).toFixed(2)}, ${(stationsData[i].lat).toFixed(2)}</b><br><b>Distance to point B (km): ${totalKilometers}</b><br><b>Time to point B (min): ${travelTime}</b><br><b>Distance after refuel (km): ${(tankFuelAmount / fuelConsumption) * 100}</b><br><b>You will burn fuel (l): ${burntFuel}</b><hr><br>`;
+                            routeInformation += `<b>Station name: ${stationsData[i].name}</b><br><b>Coords: ${(stationsData[i].lon).toFixed(2)}, ${(stationsData[i].lat).toFixed(2)}</b><br><b>Distance to point B (km): ${totalKilometers}</b><br><b>Time to point B (min): ${travelTime.toFixed(0)}</b><br><b>Distance after refuel (km): ${(tankFuelAmount / fuelConsumption) * 100}</b><br><b>You will burn fuel (l): ${burntFuel}</b><hr><br>`;
                         } else {
-                            routeInformation += `<b>Station name: ${stationsData[i].name}</b><br><b>Coords: ${(stationsData[i].lon).toFixed(2)}, ${(stationsData[i].lat).toFixed(2)}</b><br><b>Distance to next station (km): ${totalKilometers}</b><br><b>Time to next station (min): ${travelTime}</b><br><b>You will burn fuel (l): ${burntFuel}</b><hr>`;
+                            routeInformation += `<b>Station name: ${stationsData[i].name}</b><br><b>Coords: ${(stationsData[i].lon).toFixed(2)}, ${(stationsData[i].lat).toFixed(2)}</b><br><b>Distance to next station (km): ${totalKilometers}</b><br><b>Time to next station (min): ${travelTime.toFixed(0)}</b><br><b>Distance after refuel (km): ${(tankFuelAmount / fuelConsumption) * 100}</b><br><b>You will burn fuel (l): ${burntFuel}</b><hr>`;
                         }
+                        wholeTravelTime += travelTime;
                     }
                 }
             } catch (error) {
                 console.error("An error occurred during attempt to fetch station data:", error);
             }
-            return routeInformation
+            return `<b>Total distance (km): ${totalKilometers}</b><br><b>Total travel time (min): ${wholeTravelTime.toFixed(0)}</b><br><b>Range without refuel (km): ${beginPossibleDistance.toFixed(2)}</b><br><b>Points to visit on A-B route:</b><br><br>` + routeInformation
         }
     }
 

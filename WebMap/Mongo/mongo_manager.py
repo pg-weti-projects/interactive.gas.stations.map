@@ -159,15 +159,14 @@ class MongoManager:
         """Property method to access the 'users' collection in the database."""
         return self.db['users']
 
-    def register_user(self, username: str, password: str, average_fuel: str) -> bool:
+    def register_user(self, username: str, password: str) -> bool:
         """Registers a new user in the system with a unique ID, storing their hashed password."""
         id_user = self.generate_unique_id()
         hashed_password = hashlib.sha256(password.encode()).hexdigest()
         user_data = {
             '_id': id_user,
             'username': username,
-            'password': hashed_password,
-            'average_fuel': average_fuel
+            'password': hashed_password
         }
         exist = self.users_collection.find_one({'username': username})
         if exist is not None:

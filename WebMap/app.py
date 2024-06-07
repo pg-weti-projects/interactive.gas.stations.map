@@ -308,8 +308,7 @@ def register_user() -> str | Response:
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        average_fuel = request.form.get('average_fuel')
-        result = mongo_manager.register_user(username, password, average_fuel)
+        result = mongo_manager.register_user(username, password)
         if result is False:
             return render_template('register.html', error='Username already exists')
         else:
