@@ -21,6 +21,16 @@ The web application allows users to display an interactive map with markers of f
 
 - `docker`
 - `docker-compose`
+- `ArcGIS API key`
+
+To use the map functionality, you need an ArcGIS API key. Follow these steps to obtain one:
+
+1. Go to the [ArcGIS Developers website](https://developers.arcgis.com).
+2. Sign in or create a new account.
+3. Navigate to the **API Keys** section.
+4. Click on **Create API Key**.
+5. Follow the instructions to generate your API key.
+6. Once you have your API key, you can proceed with the installation process.
 
 ### Init in Ubuntu
 ```bash
@@ -42,6 +52,8 @@ pip install -r requirements.txt
 ```
 
 3. Complete the **config.ini.example** file with the required data and rename the file to **'config.ini'**.
+
+4. Put your ArcGIS API key to **config.js.example** and rename the file to  **'config.js'**.
 
 
 ### RUN
