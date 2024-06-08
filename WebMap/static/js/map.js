@@ -1,15 +1,16 @@
 import {createMapLayers, createRouteLayer, createUserMarkerLayer, createGasStationsMarkersLayers} from './modules/layers.js'
 import {generateFeaturesMarkersEachStation, groupStationsByBrand} from './modules/markers.js'
+import config from './config/config.js';
 
 $(document).ready(function () {
 
     // General Settings
     const defaultProjection = 'EPSG:4326';
-    const apiKey = 'AAPKaf77b11595124e6295c9f2679a38fb9dJbeoPRXhOddgVhIXAURQSmut9oqQkOmIzIDqSr7EK-_Vyjo3Wm_mYzt-dUi6WT49';
     const geojson = new ol.format.GeoJSON({
         defaultDataProjection: defaultProjection,
         featureProjection: "EPSG:3857"
     });
+    const apiKey = config.apiKey;
     const authentication = arcgisRest.ApiKeyManager.fromKey(apiKey);
 
     // Map Settings
